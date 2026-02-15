@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Laboratori Terraform & AWS - Giorno 1</title>
+    <style>
+        :root {
+            --primary: #5C4EE5; /* Terraform Purple */
+            --secondary: #2d3748;
+            --bg: #f7fafc;
+            --code-bg: #1a202c;
+            --text: #2d3748;
+            --accent: #e2e8f0;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: var(--text);
+            background-color: var(--bg);
+            margin: 0;
+            display: flex;
+            height: 100vh;
+        }
+        /* Sidebar */
+        .sidebar {
+            width: 250px;
+            background-color: white;
+            border-right: 1px solid #e2e8f0;
+            padding: 20px;
+            flex-shrink: 0;
+            overflow-y: auto;
+        }
+        .sidebar h2 {
+            color: var(--primary);
+            font-size: 1.2rem;
+            margin-bottom: 20px;
+        }
+        .nav-btn {
+            display: block;
+            width: 100%;
+            text-align: left;
+            padding: 12px 15px;
+            margin-bottom: 10px;
+            background: none;
+            border: 1px solid transparent;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            color: #718096;
+            transition: all 0.2s;
+        }
+        .nav-btn:hover {
+            background-color: #ebf4ff;
+            color: var(--primary);
+        }
+        .nav-btn.active {
+            background-color: var(--primary);
+            color: white;
+        }
+        
+        /* Main Content */
+        .content {
+            flex-grow: 1;
+            padding: 40px;
+            overflow-y: auto;
+            scroll-behavior: smooth;
+        }
+        .lab-section {
+            display: none;
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        }
+        .lab-section.active {
+            display: block;
+        }
+        
+        h1 { border-bottom: 2px solid var(--primary); padding-bottom: 10px; margin-bottom: 30px; }
+        h2 { margin-top: 30px; color: var(--secondary); }
+        h3 { color: #4a5568; margin-top: 25px; }
+        
+        .meta-info {
+            background-color: #ebf8ff;
+            border-left: 4px solid #4299e1;
+            padding: 15px;
+            margin-bottom: 30px;
+            border-radius: 4px;
+        }
+        
+        /* Code Blocks */
+        pre {
+            background-color: var(--code-bg);
+            color: #e2e8f0;
+            padding: 15px;
+            border-radius: 6px;
+            overflow-x: auto;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 0.9rem;
+            border: 1px solid #4a5568;
+        }
+        .filename {
+            font-family: monospace;
+            background-color: #edf2f7;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-weight: bold;
+            color: #c53030;
+        }
+        .cmd {
+            color: #48bb78;
+            font-weight: bold;
+        }
+        .comment { color: #718096; font-style: italic; }
+        .string { color: #f6ad55; }
+        .keyword { color: #63b3ed; }
+        
+        .step {
+            margin-bottom: 30px;
+            border-bottom: 1px solid #edf2f7;
+            padding-bottom: 20px;
+        }
+        .step-number {
+            display: inline-block;
+            background-color: var(--primary);
+            color: white;
+            width: 25px;
+            height: 25px;
+            text-align: center;
+            border-radius: 50%;
+            margin-right: 10px;
+            font-weight: bold;
+        }
+        
+        .warning {
+            background-color: #fffaf0;
+            border-left: 4px solid #ed8936;
+            padding: 15px;
+            margin: 15px 0;
+        }
+        
+        footer {
+            margin-top: 50px;
+            text-align: center;
+            font-size: 0.8rem;
+            color: #a0aec0;
+        }
+    </style>
+</head>
+<body>
+
+<div class="sidebar">
+    <h2>Terraform Labs</h2>
+    <button class="nav-btn active" onclick="showLab('intro')">🏠 Home & Setup</button>
+    <button class="nav-btn" onclick="showLab('lab1')">🧪 LAB 1: Hello Terraform</button>
+    <button class="nav-btn" onclick="showLab('lab2')">🧪 LAB 2: EC2 Parametrica</button>
+</div>
+
+<div class="content">
+    
+    <!-- INTRO SECTION -->
+    <div id="intro" class="lab-section active">
+        <h1>Benvenuto al Corso Terraform - Giorno 1</h1>
+        <p>Questa pagina contiene le guide passo-passo per i laboratori pratici previsti per la prima giornata.</p>
+        
+        <div class="meta-info">
+            <strong>Prerequisiti:</strong>
+            <ul>
+                <li>Terraform installato (v1.0+)</li>
+                <li>AWS CLI installata e configurata (<code>aws configure</code>)</li>
+                <li>Un editor di testo (VS Code consigliato con estensione Terraform)</li>
+            </ul>
+        </div>
+
+        <h2>Verifica preliminare</h2>
+        <p>Prima di iniziare, apri il tuo terminale e verifica che tutto sia pronto:</p>
+        <pre><span class="cmd">$ terraform version</span>
+Terraform v1.x.x
+
+<span class="cmd">$ aws sts get-caller-identity</span>
+{
+    "UserId": "...",
+    "Account": "123456789012",
+    "Arn": "arn:aws:iam::..."
+}</pre>
+        <p>Se entrambi i comandi restituiscono un output valido, sei pronto per iniziare il <strong>LAB 1</strong>.</p>
+    </div>
+
+    <!-- LAB 1 SECTION -->
+    <div id="lab1" class="lab-section">
+        <h1>LAB 1: Hello Terraform!</h1>
+        <div class="meta-info">
+            <p><strong>Obiettivo:</strong> Comprendere il workflow fondamentale (Init, Plan, Apply, Destroy) e la gestione dello State.</p>
+            <p><strong>Durata stimata:</strong> 30 Minuti</p>
+            <p><strong>Argomenti:</strong> Provider AWS, Risorsa S3, State File.</p>
+        </div>
+
+        <div class="step">
+            <h3><span class="step-number">1</span>Setup della Directory</h3>
+            <p>Crea una cartella dedicata per questo laboratorio per mantenere ordinato il tuo workspace.</p>
+            <pre><span class="cmd">mkdir</span> lab1-hello-terraform
+<span class="cmd">cd</span> lab1-hello-terraform</pre>
+        </div>
+
+        <div class="step">
+            <h3><span class="step-number">2</span>Creazione del file main.tf</h3>
+            <p>Crea un file chiamato <span class="filename">main.tf</span> e incolla il seguente codice. Questo definisce il provider AWS e un Bucket S3.</p>
+            <div class="warning">
+                ⚠️ <strong>Importante:</strong> I nomi dei bucket S3 devono essere <strong>globalmente unici</strong>. Sostituisci <code>"mio-bucket-univoco-123"</code> con qualcosa di unico (es. <code>latuadata-lab1-nome</code>).
+            </div>
+            <pre>terraform {
+  required_providers {
+    aws = {
+      source  = <span class="string">"hashicorp/aws"</span>
+      version = <span class="string">"~> 5.0"</span>
+    }
+  }
+}
+
+provider <span class="string">"aws"</span> {
+  region = <span class="string">"eu-west-1"</span> <span class="comment"># Irlanda</span>
+}
+
+resource <span class="string">"aws_s3_bucket"</span> <span class="string">"my_bucket"</span> {
+  bucket = <span class="string">"inserisci-qui-nome-univoco-123"</span> 
+
+  tags = {
+    Name        = <span class="string">"Il Mio Primo Bucket"</span>
+    Environment = <span class="string">"Dev"</span>
+  }
+}</pre>
+        </div>
+
+        <div class="step">
+            <h3><span class="step-number">3</span>Inizializzazione (Init)</h3>
+            <p>Scarica il provider AWS necessario.</p>
+            <pre><span class="cmd">terraform init</span></pre>
+            <p><em>Cosa succede:</em> Terraform legge il blocco <code>required_providers</code>, scarica il plugin AWS e crea la cartella nascosta <code>.terraform/</code>.</p>
+        </div>
+
+        <div class="step">
+            <h3><span class="step-number">4</span>Pianificazione (Plan)</h3>
+            <p>Visualizza cosa Terraform intende fare senza ancora modificare nulla.</p>
+            <pre><span class="cmd">terraform plan</span></pre>
+            <p>Dovresti vedere un output con dei <code>+</code> verdi, che indicano risorse da creare.</p>
+        </div>
+
+        <div class="step">
+            <h3><span class="step-number">5</span>Applicazione (Apply)</h3>
+            <p>Crea effettivamente le risorse su AWS.</p>
+            <pre><span class="cmd">terraform apply</span></pre>
+            <p>Digita <code>yes</code> quando richiesto.</p>
+            <p>✅ <strong>Verifica:</strong> Vai sulla console AWS (Web) -> S3 e cerca il tuo bucket.</p>
+        </div>
+
+        <div class="step">
+            <h3><span class="step-number">6</span>Analisi dello State</h3>
+            <p>Osserva il file generato nella tua cartella.</p>
+            <pre><span class="cmd">cat</span> terraform.tfstate</pre>
+            <p>Questo file JSON è la "memoria" di Terraform. Mappa la configurazione nel file <code>.tf</code> con l'ID reale della risorsa su AWS.</p>
+        </div>
+
+        <div class="step">
+            <h3><span class="step-number">7</span>Modifica e Aggiornamento</h3>
+            <p>Modifica il file <span class="filename">main.tf</span> aggiungendo un nuovo tag:</p>
+            <pre>resource <span class="string">"aws_s3_bucket"</span> <span class="string">"my_bucket"</span> {
+  <span class="comment"># ... resto del codice uguale ...</span>
+  tags = {
+    Name        = <span class="string">"Il Mio Primo Bucket"</span>
+    Environment = <span class="string">"Dev"</span>
+    Owner       = <span class="string">"Studente Terraform"</span> <span class="comment"># <--- Aggiungi questa riga</span>
+  }
+}</pre>
+            <p>Esegui nuovamente:</p>
+            <pre><span class="cmd">terraform apply</span></pre>
+            <p>Nota come Terraform rileva che il bucket esiste già e propone una modifica (<code>~</code> update in-place) invece di ricrearlo.</p>
+        </div>
+
+        <div class="step">
+            <h3><span class="step-number">8</span>Cleanup (Destroy)</h3>
+            <p>Rimuovi tutto per non incorrere in costi.</p>
+            <pre><span class="cmd">terraform destroy</span></pre>
+            <p>Conferma con <code>yes</code>.</p>
+        </div>
+    </div>
+
+    <!-- LAB 2 SECTION -->
+    <div id="lab2" class="lab-section">
+        <h1>LAB 2: Istantanea EC2 Parametrica</h1>
+        <div class="meta-info">
+            <p><strong>Obiettivo:</strong> Creare un'infrastruttura riutilizzabile usando Variabili, Output e Data Sources.</p>
+            <p><strong>Durata stimata:</strong> 30 Minuti</p>
+            <p><strong>Argomenti:</strong> Variables (input), Outputs (valori di ritorno), Data Sources (AMI dinamica), EC2.</p>
+        </div>
+
+        <div class="step">
+            <h3><span class="step-number">1</span>Setup della Directory</h3>
+            <p>Esci dalla cartella precedente e creane una nuova.</p>
+            <pre><span class="cmd">cd</span> ..
+<span class="cmd">mkdir</span> lab2-ec2-vars
+<span class="cmd">cd</span> lab2-ec2-vars</pre>
+        </div>
+
+        <div class="step">
+            <h3><span class="step-number">2</span>Definizione Variabili (variables.tf)</h3>
+            <p>Crea il file <span class="filename">variables.tf</span>. Qui dichiariamo gli input che il nostro codice accetterà.</p>
+            <pre>variable <span class="string">"aws_region"</span> {
+  description = <span class="string">"Regione AWS dove creare le risorse"</span>
+  type        = string
+  default     = <span class="string">"eu-west-1"</span>
+}
+
+variable <span class="string">"instance_type"</span> {
+  description = <span class="string">"Tipo di istanza EC2"</span>
+  type        = string
+  default     = <span class="string">"t2.micro"</span>
+}
+
+variable <span class="string">"project_name"</span> {
+  description = <span class="string">"Nome del progetto per i tag"</span>
+  type        = string
+  default     = <span class="string">"Lab2-Terraform"</span>
+}</pre>
+        </div>
+
+        <div class="step">
+            <h3><span class="step-number">3</span>Codice Principale (main.tf)</h3>
+            <p>Crea <span class="filename">main.tf</span>. Useremo un <strong>Data Source</strong> per trovare l'ultima AMI di Amazon Linux automaticamente, senza dover copiare l'ID manualmente.</p>
+            <pre>provider <span class="string">"aws"</span> {
+  region = var.aws_region
+}
+
+<span class="comment"># Data Source: Cerca l'ultima AMI Amazon Linux 2023</span>
+data <span class="string">"aws_ami"</span> <span class="string">"amazon_linux"</span> {
+  most_recent = true
+  owners      = [<span class="string">"amazon"</span>]
+
+  filter {
+    name   = <span class="string">"name"</span>
+    values = [<span class="string">"al2023-ami-2023.*-x86_64"</span>]
+  }
+}
+
+<span class="comment"># Resource: Istanza EC2</span>
+resource <span class="string">"aws_instance"</span> <span class="string">"web"</span> {
+  ami           = data.aws_ami.amazon_linux.id <span class="comment"># Riferimento dinamico</span>
+  instance_type = var.instance_type            <span class="comment"># Riferimento a variabile</span>
+
+  tags = {
+    Name = <span class="string">"${var.project_name}-WebServer"</span>    <span class="comment"># Interpolazione stringa</span>
+  }
+}</pre>
+        </div>
+
+        <div class="step">
+            <h3><span class="step-number">4</span>Definizione Output (outputs.tf)</h3>
+            <p>Crea <span class="filename">outputs.tf</span>. Vogliamo che Terraform ci stampi l'IP pubblico alla fine, così non dobbiamo cercarlo nella console.</p>
+            <pre>output <span class="string">"instance_public_ip"</span> {
+  description = <span class="string">"IP Pubblico dell'istanza EC2"</span>
+  value       = aws_instance.web.public_ip
+}
+
+output <span class="string">"instance_ami_used"</span> {
+  description = <span class="string">"ID della AMI trovata ed utilizzata"</span>
+  value       = aws_instance.web.ami
+}</pre>
+        </div>
+
+        <div class="step">
+            <h3><span class="step-number">5</span>Creazione file valori (terraform.tfvars)</h3>
+            <p>Crea un file chiamato <span class="filename">terraform.tfvars</span> per sovrascrivere i default. Questo simula una configurazione specifica per un ambiente.</p>
+            <pre>project_name  = <span class="string">"Corso-Terraform-Demo"</span>
+instance_type = <span class="string">"t3.micro"</span></pre>
+        </div>
+
+        <div class="step">
+            <h3><span class="step-number">6</span>Esecuzione</h3>
+            <p>Esegui il ciclo completo:</p>
+            <pre><span class="cmd">terraform init</span>
+<span class="cmd">terraform plan</span>
+<span class="cmd">terraform apply -auto-approve</span></pre>
+            <p>Nota come Terraform ha usato <code>t3.micro</code> (dal file .tfvars) invece di <code>t2.micro</code> (default).</p>
+        </div>
+
+        <div class="step">
+            <h3><span class="step-number">7</span>Verifica Output</h3>
+            <p>Al termine dell'apply, vedrai qualcosa di simile:</p>
+            <pre>Outputs:
+instance_ami_used = "ami-0123456789abcdef0"
+instance_public_ip = "34.245.12.11"</pre>
+            <p>Puoi richiamare questi valori in qualsiasi momento con:</p>
+            <pre><span class="cmd">terraform output instance_public_ip</span></pre>
+        </div>
+
+        <div class="step">
+            <h3><span class="step-number">8</span>Override via Variabili d'Ambiente (Opzionale)</h3>
+            <p>Proviamo a cambiare il nome del progetto usando una variabile d'ambiente (che ha precedenza sul file .tfvars).</p>
+            <p><strong>Mac/Linux:</strong></p>
+            <pre><span class="cmd">export TF_VAR_project_name="ENV-OVERRIDE"</span>
+<span class="cmd">terraform plan</span></pre>
+            <p><strong>Windows (PowerShell):</strong></p>
+            <pre><span class="cmd">$env:TF_VAR_project_name="ENV-OVERRIDE"</span>
+<span class="cmd">terraform plan</span></pre>
+            <p>Dovresti vedere nel plan che il tag <code>Name</code> cambierà in <code>ENV-OVERRIDE-WebServer</code>.</p>
+        </div>
+
+        <div class="step">
+            <h3><span class="step-number">9</span>Cleanup</h3>
+            <p>Distruggi le risorse.</p>
+            <pre><span class="cmd">terraform destroy -auto-approve</span></pre>
+        </div>
+    </div>
+
+</div>
+
+<script>
+    function showLab(labId) {
+        // Hide all sections
+        document.querySelectorAll('.lab-section').forEach(section => {
+            section.classList.remove('active');
+        });
+        // Remove active class from buttons
+        document.querySelectorAll('.nav-btn').forEach(btn => {
+            btn.classList.remove('active');
+        });
+        
+        // Show selected section
+        document.getElementById(labId).classList.add('active');
+        
+        // Highlight button
+        const buttons = document.querySelectorAll('.nav-btn');
+        if(labId === 'intro') buttons[0].classList.add('active');
+        if(labId === 'lab1') buttons[1].classList.add('active');
+        if(labId === 'lab2') buttons[2].classList.add('active');
+        
+        // Scroll to top
+        document.querySelector('.content').scrollTop = 0;
+    }
+</script>
+
+</body>
+</html>
