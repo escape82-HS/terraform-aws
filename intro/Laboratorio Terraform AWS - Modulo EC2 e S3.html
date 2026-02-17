@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Laboratorio Terraform: Modulo EC2 + S3 | Marblemind.eu</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/hcl.min.js"></script>
+    <script>hljs.highlightAll();</script>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        .code-header { background-color: #2d3748; color: #e2e8f0; padding: 0.5rem 1rem; border-radius: 0.5rem 0.5rem 0 0; font-size: 0.875rem; display: flex; justify-content: space-between; align-items: center; }
+        .copy-btn { background: transparent; border: 1px solid #718096; color: #cbd5e0; padding: 2px 8px; border-radius: 4px; cursor: pointer; font-size: 0.75rem; transition: all 0.2s; }
+        .copy-btn:hover { background: #4a5568; color: white; }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800">
+
+    <!-- Header -->
+    <header class="bg-indigo-700 text-white shadow-lg">
+        <div class="container mx-auto px-6 py-4 flex justify-between items-center">
+            <h1 class="text-2xl font-bold">Laboratorio Terraform: Modulo Custom</h1>
+            <a href="https://marblemind.eu" target="_blank" class="text-indigo-200 hover:text-white transition">marblemind.eu</a>
+        </div>
+    </header>
+
+    <main class="container mx-auto px-6 py-8 max-w-4xl">
+        
+        <!-- Intro -->
+        <section class="mb-12">
+            <h2 class="text-3xl font-bold text-gray-800 mb-4">Obiettivo del Laboratorio</h2>
+            <p class="text-lg text-gray-600 mb-4">
+                In questo laboratorio impareremo a incapsulare risorse AWS in un <strong>Modulo Terraform</strong> riutilizzabile. Invece di definire risorse sparse, creeremo un pacchetto unico che proviziona una macchina virtuale (EC2) e un bucket di storage (S3) associato.
+            </p>
+            <div class="bg-blue-50 border-l-4 border-blue-500 p-4 text-blue-700">
+                <strong>Prerequisiti:</strong> Terraform installato, AWS CLI configurata con le credenziali, un editor di testo (VS Code).
+            </div>
+        </section>
+
+        <!-- Step 1: Structure -->
+        <section class="mb-12">
+            <h3 class="text-2xl font-semibold text-gray-800 mb-4">Step 1: Struttura del Progetto</h3>
+            <p class="mb-4">Per mantenere il codice pulito, separeremo la logica del modulo dall'implementazione principale. Crea la seguente struttura di cartelle:</p>
+            
+            <div class="bg-gray-800 text-green-400 p-4 rounded-lg font-mono text-sm mb-6">
+terraform-lab/
+├── main.tf                # File principale (Root Module)
+├── outputs.tf             # Output principali
+└── modules/
+    └── compute_storage/   # Il nostro modulo custom
+        ├── main.tf        # Risorse del modulo (EC2 + S3)
+        ├── variables.tf   # Input del modulo
+        └── outputs.tf     # Output del modulo
+            </div>
+        </section>
+
+        <!-- Step 2: Module Creation -->
+        <section class="mb-12">
+            <h3 class="text-2xl font-semibold text-gray-800 mb-4">Step 2: Creazione del Modulo</h3>
+            <p class="mb-4">Definiamo le risorse all'interno del modulo. Questo codice andrà nella cartella <code>modules/compute_storage</code>.</p>
+
+            <!-- Module Variables -->
+            <div class="mb-6">
+                <div class="code-header">
+                    <span>modules/compute_storage/variables.tf</span>
+                </div>
+                <pre><code class="language-hcl">variable "environment" {
+  description = "L'ambiente di deploy (es. dev, prod)"
+  type        = string
+  default     = "dev"
+}
+
+variable "instance_type" {
+  description = "Tipo di istanza EC2"
+  type        = string
+  default     = "t2.micro"
+}
+
+variable "bucket_prefix" {
+  description = "Prefisso per il nome del bucket S3"
+  type        = string
+}</code></pre>
+            </div>
+
+            <!-- Module Main -->
+            <div class="mb-6">
+                <div class="code-header">
+                    <span>modules/compute_storage/main.tf</span>
+                </div>
+                <pre><code class="language-hcl"># Generiamo un ID casuale per rendere unico il nome del bucket
+resource "random_id" "bucket_suffix" {
+  byte_length = 4
+}
+
+# Creazione Bucket S3
+resource "aws_s3_bucket" "lab_bucket" {
+  bucket = "${var.bucket_prefix}-${var.environment}-${random_id.bucket_suffix.hex}"
+  
+  tags = {
+    Name        = "Lab Bucket"
+    Environment = var.environment
+    CreatedBy   = "Marblemind Lab"
+  }
+}
+
+# Recuperiamo l'ultima AMI Amazon Linux 2
+data "aws_ami" "amazon_linux" {
+  most_recent = true
+  owners      = ["amazon"]
+
+  filter {
+    name   = "name"
+    values = ["amzn2-ami-hvm-*-x86_64-gp2"]
+  }
+}
+
+# Creazione Istanza EC2
+resource "aws_instance" "lab_server" {
+  ami           = data.aws_ami.amazon_linux.id
+  instance_type = var.instance_type
+
+  tags = {
+    Name        = "Lab-Server-${var.environment}"
+    Environment = var.environment
+  }
+}</code></pre>
+            </div>
+
+            <!-- Module Outputs -->
+            <div class="mb-6">
+                <div class="code-header">
+                    <span>modules/compute_storage/outputs.tf</span>
+                </div>
+                <pre><code class="language-hcl">output "instance_id" {
+  value = aws_instance.lab_server.id
+}
+
+output "bucket_name" {
+  value = aws_s3_bucket.lab_bucket.id
+}</code></pre>
+            </div>
+        </section>
+
+        <!-- Step 3: Root Module -->
+        <section class="mb-12">
+            <h3 class="text-2xl font-semibold text-gray-800 mb-4">Step 3: Utilizzo del Modulo (Root)</h3>
+            <p class="mb-4">Ora torniamo nella cartella radice <code>terraform-lab/</code> e chiamiamo il modulo che abbiamo appena creato.</p>
+
+            <div class="mb-6">
+                <div class="code-header">
+                    <span>main.tf (Root)</span>
+                </div>
+                <pre><code class="language-hcl">provider "aws" {
+  region = "us-east-1" # O la tua regione preferita
+}
+
+# Chiamata al modulo
+module "my_lab_infrastructure" {
+  source = "./modules/compute_storage"
+
+  # Passaggio delle variabili al modulo
+  environment   = "training"
+  bucket_prefix = "marblemind-lab"
+  instance_type = "t2.micro"
+}</code></pre>
+            </div>
+
+            <div class="mb-6">
+                <div class="code-header">
+                    <span>outputs.tf (Root)</span>
+                </div>
+                <pre><code class="language-hcl">output "final_instance_id" {
+  description = "ID dell'istanza creata dal modulo"
+  value       = module.my_lab_infrastructure.instance_id
+}
+
+output "final_bucket_name" {
+  description = "Nome del bucket creato dal modulo"
+  value       = module.my_lab_infrastructure.bucket_name
+}</code></pre>
+            </div>
+        </section>
+
+        <!-- Step 4: Execution -->
+        <section class="mb-12">
+            <h3 class="text-2xl font-semibold text-gray-800 mb-4">Step 4: Esecuzione</h3>
+            <p class="mb-4">Apri il terminale nella cartella radice ed esegui i comandi:</p>
+
+            <div class="bg-gray-900 text-gray-100 p-4 rounded-lg shadow-inner font-mono">
+                <p class="mb-2"><span class="text-green-400">$</span> terraform init</p>
+                <p class="text-gray-500 text-sm mb-4"># Inizializza Terraform e scarica il provider AWS.</p>
+
+                <p class="mb-2"><span class="text-green-400">$</span> terraform plan</p>
+                <p class="text-gray-500 text-sm mb-4"># Mostra l'anteprima delle risorse che verranno create (2 risorse + random_id).</p>
+
+                <p class="mb-2"><span class="text-green-400">$</span> terraform apply -auto-approve</p>
+                <p class="text-gray-500 text-sm mb-4"># Applica le modifiche e crea l'infrastruttura.</p>
+            </div>
+        </section>
+
+         <!-- Step 5: Cleanup -->
+         <section class="mb-12">
+            <h3 class="text-2xl font-semibold text-gray-800 mb-4">Step 5: Pulizia</h3>
+            <p class="mb-4">Per evitare costi aggiuntivi su AWS, ricorda di distruggere le risorse alla fine del laboratorio:</p>
+            <div class="bg-gray-900 text-gray-100 p-4 rounded-lg shadow-inner font-mono">
+                <p class="mb-2"><span class="text-green-400">$</span> terraform destroy -auto-approve</p>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-gray-800 text-white py-8 mt-12">
+        <div class="container mx-auto px-6 text-center">
+            <p class="mb-2">Laboratorio creato per scopi didattici.</p>
+            <p>Visita <a href="https://marblemind.eu" class="text-indigo-400 hover:text-indigo-300 font-bold">marblemind.eu</a> per altri contenuti tech.</p>
+        </div>
+    </footer>
+
+</body>
+</html>

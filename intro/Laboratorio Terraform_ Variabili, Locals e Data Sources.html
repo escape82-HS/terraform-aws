@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Laboratorio Terraform: Variabili & Data Sources | Marblemind.eu</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/hcl.min.js"></script>
+    <script>hljs.highlightAll();</script>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        .code-container { position: relative; margin-bottom: 2rem; border-radius: 0.5rem; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); }
+        .code-header { background-color: #2d3748; color: #e2e8f0; padding: 0.5rem 1rem; font-size: 0.875rem; font-weight: 600; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #4a5568; }
+        pre { margin: 0; }
+        code { font-family: 'Fira Code', monospace; font-size: 0.9rem; line-height: 1.5; }
+        .highlight-keyword { color: #c678dd; }
+        .highlight-string { color: #98c379; }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800">
+
+    <!-- Header -->
+    <header class="bg-gradient-to-r from-orange-600 to-red-600 text-white shadow-lg">
+        <div class="container mx-auto px-6 py-5 flex justify-between items-center">
+            <div>
+                <h1 class="text-2xl font-bold">Laboratorio Terraform Avanzato</h1>
+                <p class="text-sm opacity-90">Variabili, Locals e Data Sources</p>
+            </div>
+            <a href="https://www.marblemind.eu" target="_blank" class="bg-white text-orange-600 px-4 py-2 rounded-full font-bold hover:bg-orange-100 transition">Visita www.marblemind.eu</a>
+        </div>
+    </header>
+
+    <main class="container mx-auto px-6 py-10 max-w-5xl">
+        
+        <!-- Intro -->
+        <section class="mb-12 bg-white p-8 rounded-xl shadow-sm border border-gray-100">
+            <h2 class="text-3xl font-bold text-gray-800 mb-4">Cosa imparerai</h2>
+            <p class="text-lg text-gray-600 mb-6">
+                In questo laboratorio abbandoneremo i valori "hardcoded". Imparerai a:
+            </p>
+            <ul class="list-disc list-inside space-y-2 text-gray-700 ml-4">
+                <li>Utilizzare <strong>Input Variables</strong> per parametrizzare la configurazione.</li>
+                <li>Sfruttare <strong>Locals</strong> per trasformare dati e semplificare la logica interna.</li>
+                <li>Usare <strong>Data Sources</strong> per trovare automaticamente il VPC di default e le sue Subnet, senza dover copiare/incollare ID.</li>
+            </ul>
+        </section>
+
+        <!-- Step 1: Variables -->
+        <section class="mb-12">
+            <div class="flex items-center mb-4">
+                <div class="bg-orange-100 text-orange-600 rounded-full w-10 h-10 flex items-center justify-center font-bold mr-4">1</div>
+                <h3 class="text-2xl font-semibold text-gray-800">Definizione delle Variabili (Input)</h3>
+            </div>
+            <p class="mb-4 text-gray-600">Creiamo il file <code>variables.tf</code>. Queste sono le "manopole" che l'utente può girare per configurare il deployment.</p>
+            
+            <div class="code-container">
+                <div class="code-header">variables.tf</div>
+                <pre><code class="language-hcl">variable "aws_region" {
+  description = "La regione AWS dove deployare le risorse"
+  type        = string
+  default     = "us-east-1"
+}
+
+variable "project_name" {
+  description = "Nome del progetto per i tag"
+  type        = string
+  default     = "marblemind-lab"
+}
+
+variable "environment" {
+  description = "Ambiente (dev, staging, prod)"
+  type        = string
+  validation {
+    condition     = contains(["dev", "staging", "prod"], var.environment)
+    error_message = "L'ambiente deve essere uno tra: dev, staging, prod."
+  }
+}
+
+variable "instance_size" {
+  description = "Mappa delle dimensioni istanza per ambiente"
+  type        = map(string)
+  default = {
+    dev     = "t2.micro"
+    staging = "t3.micro"
+    prod    = "t3.medium"
+  }
+}</code></pre>
+            </div>
+        </section>
+
+        <!-- Step 2: Data Sources -->
+        <section class="mb-12">
+            <div class="flex items-center mb-4">
+                <div class="bg-blue-100 text-blue-600 rounded-full w-10 h-10 flex items-center justify-center font-bold mr-4">2</div>
+                <h3 class="text-2xl font-semibold text-gray-800">Data Sources (Lettura Dinamica)</h3>
+            </div>
+            <p class="mb-4 text-gray-600">Invece di scrivere `vpc-123456`, chiediamo ad AWS: "Dammi il VPC di default". Poi chiediamo: "Dammi le subnet di quel VPC".</p>
+
+            <div class="code-container">
+                <div class="code-header">data.tf (o parte di main.tf)</div>
+                <pre><code class="language-hcl"># 1. Trova il VPC di Default
+data "aws_vpc" "default" {
+  default = true
+}
+
+# 2. Trova gli ID delle Subnet associate a quel VPC
+data "aws_subnets" "default_subnets" {
+  filter {
+    name   = "vpc-id"
+    values = [data.aws_vpc.default.id]
+  }
+}
+
+# 3. Trova l'ultima AMI Amazon Linux 2023
+data "aws_ami" "amazon_linux_2023" {
+  most_recent = true
+  owners      = ["amazon"]
+
+  filter {
+    name   = "name"
+    values = ["al2023-ami-2023.*-x86_64"]
+  }
+}</code></pre>
+            </div>
+        </section>
+
+        <!-- Step 3: Locals & Resources -->
+        <section class="mb-12">
+            <div class="flex items-center mb-4">
+                <div class="bg-purple-100 text-purple-600 rounded-full w-10 h-10 flex items-center justify-center font-bold mr-4">3</div>
+                <h3 class="text-2xl font-semibold text-gray-800">Locals e Risorse (Logica & Deploy)</h3>
+            </div>
+            <p class="mb-4 text-gray-600">
+                Qui usiamo <code>locals</code> per calcolare valori intermedi (come i tag comuni) e selezionare la subnet giusta. Poi creiamo l'istanza.
+            </p>
+
+            <div class="code-container">
+                <div class="code-header">main.tf</div>
+                <pre><code class="language-hcl">provider "aws" {
+  region = var.aws_region
+}
+
+# LOCALS: Logica interna e trasformazione dati
+locals {
+  # Creiamo un set standard di tag da applicare ovunque
+  common_tags = {
+    Project     = var.project_name
+    Environment = var.environment
+    Owner       = "Marblemind Team"
+    ManagedBy   = "Terraform"
+  }
+
+  # Selezioniamo dinamicamente la prima subnet disponibile dalla lista ottenuta via Data Source
+  selected_subnet_id = data.aws_subnets.default_subnets.ids[0]
+
+  # Nome composto per l'istanza
+  instance_name = "${var.project_name}-server-${var.environment}"
+}
+
+# RESOURCE: Creazione EC2
+resource "aws_instance" "web_server" {
+  # Usa l'AMI trovata dinamicamente
+  ami           = data.aws_ami.amazon_linux_2023.id
+  
+  # Seleziona la dimensione in base all'ambiente (lookup nella mappa)
+  instance_type = var.instance_size[var.environment]
+  
+  # Usa la subnet trovata dinamicamente
+  subnet_id     = local.selected_subnet_id
+
+  # Uniamo i tag comuni con il nome specifico
+  tags = merge(
+    local.common_tags,
+    {
+      Name = local.instance_name
+    }
+  )
+}</code></pre>
+            </div>
+        </section>
+
+        <!-- Step 4: Outputs -->
+        <section class="mb-12">
+            <div class="flex items-center mb-4">
+                <div class="bg-green-100 text-green-600 rounded-full w-10 h-10 flex items-center justify-center font-bold mr-4">4</div>
+                <h3 class="text-2xl font-semibold text-gray-800">Outputs</h3>
+            </div>
+            <p class="mb-4 text-gray-600">Restituiamo le informazioni utili all'utente.</p>
+
+            <div class="code-container">
+                <div class="code-header">outputs.tf</div>
+                <pre><code class="language-hcl">output "ec2_public_ip" {
+  description = "Indirizzo IP pubblico dell'istanza"
+  value       = aws_instance.web_server.public_ip
+}
+
+output "vpc_info" {
+  description = "Info sul VPC utilizzato (scoperto dinamicamente)"
+  value       = "Deployato nel VPC: ${data.aws_vpc.default.id} (CIDR: ${data.aws_vpc.default.cidr_block})"
+}
+
+output "environment_type" {
+  value = "Stai usando l'ambiente: ${var.environment}"
+}</code></pre>
+            </div>
+        </section>
+
+        <!-- Execution Guide -->
+        <section class="bg-gray-900 text-gray-300 p-6 rounded-xl">
+            <h3 class="text-xl font-bold text-white mb-4">Come Eseguire il Laboratorio</h3>
+            
+            <p class="mb-2">1. Crea un file <code>terraform.tfvars</code> per definire le tue variabili:</p>
+            <pre class="bg-black p-3 rounded mb-4 text-green-400"><code>environment = "dev"
+project_name = "marblemind-demo"</code></pre>
+
+            <p class="mb-2">2. Inizializza e applica:</p>
+            <pre class="bg-black p-3 rounded mb-4 text-green-400"><code>terraform init
+terraform apply</code></pre>
+
+            <p class="mb-2">3. Prova a cambiare l'ambiente:</p>
+            <p class="text-sm mb-2">Modifica <code>terraform.tfvars</code> impostando <code>environment = "prod"</code> e ri-esegui apply. Noterai che l'istanza cambierà tipo (da t2.micro a t3.medium) grazie alla mappa nelle variabili.</p>
+        </section>
+
+    </main>
+
+    <footer class="bg-gray-100 border-t border-gray-200 py-8 mt-12 text-center text-gray-500 text-sm">
+        <p>&copy; 2024 Laboratorio Terraform. Powered by <a href="https://marblemind.eu" class="text-orange-600 hover:underline">Marblemind.eu</a></p>
+    </footer>
+
+</body>
+</html>
