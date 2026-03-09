@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AWS VPC Peering & Routing Lab</title>
+    <style>
+        :root {
+            --primary-color: #232f3e; /* AWS Dark Blue */
+            --secondary-color: #ff9900; /* AWS Orange */
+            --accent-color: #0073bb;
+            --bg-color: #f8f9fa;
+            --text-color: #333;
+            --card-bg: #ffffff;
+            --success-color: #28a745;
+            --warning-bg: #fff3cd;
+            --warning-text: #856404;
+        }
+
+        body {
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            line-height: 1.6;
+            color: var(--text-color);
+            background-color: var(--bg-color);
+            margin: 0;
+            padding: 0;
+        }
+
+        /* Header */
+        header {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 2rem 0;
+            text-align: center;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        header h1 {
+            margin: 0;
+            font-size: 2.5rem;
+        }
+
+        header p {
+            margin-top: 10px;
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        /* Container */
+        .container {
+            max-width: 1000px;
+            margin: 40px auto;
+            padding: 0 20px;
+        }
+
+        /* Cards */
+        .card {
+            background: var(--card-bg);
+            border-radius: 8px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            border-left: 5px solid var(--secondary-color);
+        }
+
+        h2 {
+            color: var(--primary-color);
+            border-bottom: 2px solid #eee;
+            padding-bottom: 10px;
+            margin-top: 0;
+        }
+
+        h3 {
+            color: var(--accent-color);
+            margin-top: 25px;
+            font-size: 1.3rem;
+        }
+
+        /* Architecture Diagram Representation */
+        .arch-diagram {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #f1f3f5;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+            text-align: center;
+        }
+
+        .vpc-box {
+            border: 2px dashed var(--primary-color);
+            padding: 15px;
+            background: white;
+            width: 40%;
+            border-radius: 5px;
+        }
+
+        .peering-line {
+            flex-grow: 1;
+            height: 4px;
+            background: var(--secondary-color);
+            position: relative;
+            margin: 0 10px;
+        }
+
+        .peering-line::after {
+            content: "Peering Connection";
+            position: absolute;
+            top: -25px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 0.8rem;
+            font-weight: bold;
+            color: var(--secondary-color);
+        }
+
+        /* Steps */
+        .step {
+            margin-bottom: 25px;
+        }
+
+        .step-number {
+            display: inline-block;
+            background-color: var(--secondary-color);
+            color: var(--primary-color);
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 30px;
+            font-weight: bold;
+            margin-right: 10px;
+        }
+
+        .code-block {
+            background-color: #2d2d2d;
+            color: #f8f8f2;
+            padding: 15px;
+            border-radius: 5px;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 0.9rem;
+            margin: 10px 0;
+            border-left: 4px solid var(--secondary-color);
+        }
+
+        .warning-box {
+            background-color: var(--warning-bg);
+            color: var(--warning-text);
+            padding: 15px;
+            border-radius: 5px;
+            border-left: 4px solid #ffc107;
+            margin: 15px 0;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+
+        th, td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: left;
+        }
+
+        th {
+            background-color: var(--primary-color);
+            color: white;
+        }
+
+        /* Footer */
+        footer {
+            text-align: center;
+            padding: 40px 0;
+            background-color: var(--primary-color);
+            color: white;
+            margin-top: 50px;
+        }
+
+        footer a {
+            color: var(--secondary-color);
+            text-decoration: none;
+            font-weight: bold;
+        }
+
+        footer a:hover {
+            text-decoration: underline;
+        }
+
+        @media (max-width: 768px) {
+            .arch-diagram { flex-direction: column; gap: 20px; }
+            .vpc-box { width: 100%; }
+            .peering-line { width: 4px; height: 50px; margin: 10px 0; }
+            .peering-line::after { top: 50%; left: 20px; transform: translateY(-50%); }
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>AWS Multi-VPC Peering Lab</h1>
+        <p>Configurazione avanzata di routing tra reti virtuali isolate</p>
+    </header>
+
+    <div class="container">
+
+        <!-- Section 1: Theory -->
+        <div class="card">
+            <h2>1. Obiettivo e Teoria</h2>
+            <p>In questo laboratorio configureremo due VPC distinte e le collegheremo affinché possano comunicare tra loro utilizzando una connessione privata.</p>
+            
+            <div class="arch-diagram">
+                <div class="vpc-box">
+                    <strong>VPC A (Main)</strong><br>
+                    CIDR: 10.0.0.0/16<br>
+                    <em>Subnets: Frontend & Backend</em>
+                </div>
+                <div class="peering-line"></div>
+                <div class="vpc-box">
+                    <strong>VPC B (Partner)</strong><br>
+                    CIDR: 10.1.0.0/16<br>
+                    <em>Subnets: Frontend & Backend</em>
+                </div>
+            </div>
+
+            <div class="warning-box">
+                <strong>Regola d'oro del Peering:</strong> I blocchi CIDR delle due VPC non devono MAI sovrapporsi. Se entrambe le VPC avessero <code>10.0.0.0/16</code>, il routing sarebbe impossibile.
+            </div>
+
+            <p><strong>Concetti Chiave:</strong></p>
+            <ul>
+                <li><strong>VPC Peering:</strong> Una connessione di rete tra due VPC che permette di instradare il traffico usando indirizzi IPv4 privati.</li>
+                <li><strong>Route Table Update:</strong> Il peering non funziona "magicamente". Bisogna aggiornare le tabelle di routing di entrambe le VPC per dire "Se cerchi l'IP dell'altra VPC, passa per il Peering Connection".</li>
+            </ul>
+        </div>
+
+        <!-- Section 2: Setup -->
+        <div class="card">
+            <h2>2. Configurazione Infrastruttura Base</h2>
+            
+            <div class="step">
+                <h3><span class="step-number">1</span>Creazione VPC A (Main App)</h3>
+                <p>Crea la prima VPC con le seguenti specifiche:</p>
+                <ul>
+                    <li><strong>Name:</strong> <code>VPC-A-Main</code></li>
+                    <li><strong>IPv4 CIDR:</strong> <code>10.0.0.0/16</code></li>
+                </ul>
+                <p>Crea due Subnet in VPC A:</p>
+                <table>
+                    <tr>
+                        <th>Nome</th>
+                        <th>CIDR</th>
+                        <th>Tipo</th>
+                    </tr>
+                    <tr>
+                        <td>Subnet-A-Front</td>
+                        <td>10.0.1.0/24</td>
+                        <td>Pubblica (richiede IGW)</td>
+                    </tr>
+                    <tr>
+                        <td>Subnet-A-Back</td>
+                        <td>10.0.2.0/24</td>
+                        <td>Privata</td>
+                    </tr>
+                </table>
+                <p><em>Nota: Per brevità, assumiamo che tu sappia creare e associare l'Internet Gateway per la subnet pubblica come nel lab precedente.</em></p>
+            </div>
+
+            <div class="step">
+                <h3><span class="step-number">2</span>Creazione VPC B (Partner Services)</h3>
+                <p>Crea la seconda VPC. <strong>Attenzione al CIDR diverso!</strong></p>
+                <ul>
+                    <li><strong>Name:</strong> <code>VPC-B-Partner</code></li>
+                    <li><strong>IPv4 CIDR:</strong> <code>10.1.0.0/16</code></li>
+                </ul>
+                <p>Crea due Subnet in VPC B:</p>
+                <table>
+                    <tr>
+                        <th>Nome</th>
+                        <th>CIDR</th>
+                        <th>Tipo</th>
+                    </tr>
+                    <tr>
+                        <td>Subnet-B-Front</td>
+                        <td>10.1.1.0/24</td>
+                        <td>Pubblica (richiede IGW)</td>
+                    </tr>
+                    <tr>
+                        <td>Subnet-B-Back</td>
+                        <td>10.1.2.0/24</td>
+                        <td>Privata</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+
+        <!-- Section 3: Peering & Routing -->
+        <div class="card">
+            <h2>3. Connessione e Routing (Il Core del Lab)</h2>
+
+            <div class="step">
+                <h3><span class="step-number">3</span>Creare la Peering Connection</h3>
+                <ol>
+                    <li>Vai sulla console VPC e seleziona <strong>Peering Connections</strong> nel menu a sinistra.</li>
+                    <li>Clicca su "Create peering connection".</li>
+                    <li><strong>Name:</strong> <code>Peering-A-to-B</code>.</li>
+                    <li><strong>VPC (Requester):</strong> Seleziona <code>VPC-A-Main</code>.</li>
+                    <li><strong>VPC (Accepter):</strong> Seleziona <code>VPC-B-Partner</code> (assicurati che sia nello stesso account e regione).</li>
+                    <li>Clicca su "Create peering connection".</li>
+                </ol>
+                <div class="warning-box">
+                    <strong>Stato: Pending Acceptance.</strong> La connessione non è attiva finché non viene accettata.
+                </div>
+                <ol start="7">
+                    <li>Seleziona la connessione creata, clicca su <strong>Actions</strong> -> <strong>Accept Request</strong>. Conferma l'accettazione.</li>
+                </ol>
+            </div>
+
+            <div class="step">
+                <h3><span class="step-number">4</span>Aggiornamento Route Tables (VPC A)</h3>
+                <p>Dobbiamo dire alla VPC A come raggiungere la VPC B.</p>
+                <ol>
+                    <li>Vai su <strong>Route Tables</strong> e seleziona la Route Table associata alla <code>Subnet-A-Front</code> (o Back, a seconda di chi deve comunicare).</li>
+                    <li>Clicca su <strong>Routes</strong> -> <strong>Edit routes</strong>.</li>
+                    <li>Aggiungi una nuova rotta:</li>
+                </ol>
+                <div class="code-block">
+                    Destination: 10.1.0.0/16  (Tutto il traffico per VPC B)<br>
+                    Target: Peering Connection (seleziona Peering-A-to-B)
+                </div>
+                <p>Salva le modifiche.</p>
+            </div>
+
+            <div class="step">
+                <h3><span class="step-number">5</span>Aggiornamento Route Tables (VPC B)</h3>
+                <p>Il routing deve essere bidirezionale! Dobbiamo dire alla VPC B come rispondere alla VPC A.</p>
+                <ol>
+                    <li>Seleziona la Route Table associata alla <code>Subnet-B-Back</code> (o Front).</li>
+                    <li>Clicca su <strong>Routes</strong> -> <strong>Edit routes</strong>.</li>
+                    <li>Aggiungi una nuova rotta:</li>
+                </ol>
+                <div class="code-block">
+                    Destination: 10.0.0.0/16  (Tutto il traffico per VPC A)<br>
+                    Target: Peering Connection (seleziona Peering-A-to-B)
+                </div>
+                <p>Salva le modifiche.</p>
+            </div>
+
+            <div class="step">
+                <h3><span class="step-number">6</span>Security Groups (Il Firewall)</h3>
+                <p>Anche se il routing è corretto, i Security Group bloccano il traffico di default. Immagina di voler permettere al Backend di VPC A di accedere al Database in VPC B.</p>
+                <ol>
+                    <li>Vai su <strong>Security Groups</strong>.</li>
+                    <li>Crea/Modifica un SG per la VPC B (es. <code>SG-B-Database</code>).</li>
+                    <li>Aggiungi una <strong>Inbound Rule</strong>:</li>
+                    <ul>
+                        <li><strong>Type:</strong> All TCP (o porta specifica come 3306/5432)</li>
+                        <li><strong>Source:</strong> <code>10.0.0.0/16</code> (L'intero range della VPC A) oppure <code>10.0.2.0/24</code> (Solo la subnet Backend di A).</li>
+                    </ul>
+                </ol>
+            </div>
+        </div>
+
+        <!-- Section 4: Verification -->
+        <div class="card">
+            <h2>4. Verifica Finale</h2>
+            <p>Per testare che tutto funzioni:</p>
+            <ol>
+                <li>Lancia un'istanza EC2 in <code>Subnet-A-Front</code> (con IP pubblico).</li>
+                <li>Lancia un'istanza EC2 in <code>Subnet-B-Back</code> (solo IP privato).</li>
+                <li>Assicurati che i Security Group permettano ICMP (Ping).</li>
+                <li>Connettiti in SSH all'istanza A.</li>
+                <li>Esegui il comando: <code>ping [IP-Privato-Istanza-B]</code>.</li>
+            </ol>
+            <p>Se il ping risponde, hai configurato con successo il routing inter-VPC!</p>
+        </div>
+
+    </div>
+
+    <footer>
+        <p>Lab avanzato di Networking AWS.</p>
+        <p>Per consulenze cloud e architetture complesse, visita <a href="http://www.marblemind.eu" target="_blank">www.marblemind.eu</a></p>
+    </footer>
+
+</body>
+</html>

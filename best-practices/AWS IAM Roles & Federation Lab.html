@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AWS IAM Identity & Federation Lab</title>
+    <style>
+        :root {
+            --primary-color: #232f3e; /* AWS Dark Blue */
+            --secondary-color: #ff9900; /* AWS Orange */
+            --accent-color: #0073bb;
+            --bg-color: #f8f9fa;
+            --text-color: #333;
+            --card-bg: #ffffff;
+            --code-bg: #1e1e1e;
+            --diagram-bg: #eef3f7;
+        }
+
+        body {
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            line-height: 1.6;
+            color: var(--text-color);
+            background-color: var(--bg-color);
+            margin: 0;
+            padding: 0;
+        }
+
+        /* Header */
+        header {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 2rem 0;
+            text-align: center;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        header h1 { margin: 0; font-size: 2.5rem; }
+        header p { margin-top: 10px; font-size: 1.1rem; opacity: 0.9; }
+
+        .container {
+            max-width: 1000px;
+            margin: 40px auto;
+            padding: 0 20px;
+        }
+
+        .card {
+            background: var(--card-bg);
+            border-radius: 8px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            border-left: 5px solid var(--secondary-color);
+        }
+
+        h2 {
+            color: var(--primary-color);
+            border-bottom: 2px solid #eee;
+            padding-bottom: 10px;
+            margin-top: 0;
+        }
+
+        h3 { color: var(--accent-color); margin-top: 25px; }
+
+        /* Comparison Table */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+
+        th, td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: left;
+        }
+
+        th {
+            background-color: var(--primary-color);
+            color: white;
+        }
+
+        /* Flow Diagram Visualization */
+        .flow-diagram {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background-color: var(--diagram-bg);
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+            flex-wrap: wrap;
+        }
+
+        .flow-step {
+            background: white;
+            padding: 15px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+            text-align: center;
+            width: 18%;
+            font-size: 0.9rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            position: relative;
+        }
+
+        .flow-arrow {
+            font-size: 1.5rem;
+            color: var(--secondary-color);
+            font-weight: bold;
+        }
+
+        /* Steps & Code */
+        .step-number {
+            display: inline-block;
+            background-color: var(--secondary-color);
+            color: var(--primary-color);
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 30px;
+            font-weight: bold;
+            margin-right: 10px;
+        }
+
+        pre {
+            background-color: var(--code-bg);
+            color: #d4d4d4;
+            padding: 15px;
+            border-radius: 6px;
+            overflow-x: auto;
+            font-size: 0.9rem;
+        }
+
+        .alert {
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+            border-left: 4px solid;
+        }
+        
+        .alert-info { background-color: #e3f2fd; border-color: #2196f3; }
+        .alert-warning { background-color: #fff3cd; border-color: #ffc107; }
+
+        footer {
+            text-align: center;
+            padding: 40px 0;
+            background-color: var(--primary-color);
+            color: white;
+            margin-top: 50px;
+        }
+        
+        footer a { color: var(--secondary-color); text-decoration: none; font-weight: bold; }
+
+        @media (max-width: 768px) {
+            .flow-step { width: 100%; margin-bottom: 10px; }
+            .flow-arrow { transform: rotate(90deg); margin: 5px 0; }
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>AWS IAM Federation Lab</h1>
+        <p>Gestione Identità, Ruoli e Integrazione SAML 2.0</p>
+    </header>
+
+    <div class="container">
+
+        <!-- Section 1: Theory Comparison -->
+        <div class="card">
+            <h2>1. IAM Users vs. IAM Roles</h2>
+            <p>La distinzione fondamentale in AWS Security è tra identità permanenti e temporanee.</p>
+            
+            <table>
+                <thead>
+                    <tr>
+                        <th>Caratteristica</th>
+                        <th>IAM User (Utente)</th>
+                        <th>IAM Role (Ruolo)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>Natura</strong></td>
+                        <td>Identità permanente associata a una persona o servizio specifico.</td>
+                        <td>Identità temporanea che può essere "assunta" da chiunque ne abbia il permesso.</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Credenziali</strong></td>
+                        <td>Password (Console) o Access Keys (CLI) a lungo termine.</td>
+                        <td>Token di sicurezza temporanei (STS) che scadono (da 15 min a 12 ore).</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Best Practice</strong></td>
+                        <td>Usare SOLO per creare l'account iniziale o per casi legacy molto specifici.</td>
+                        <td><strong>Standard moderno.</strong> Usato per EC2, Lambda, Cross-Account e Federation.</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Rischio</strong></td>
+                        <td>Alto. Se le chiavi vengono rubate, l'hacker ha accesso finché non vengono revocate.</td>
+                        <td>Basso. Se il token viene rubato, scade automaticamente dopo poco tempo.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Section 2: SAML Federation Theory -->
+        <div class="card">
+            <h2>2. Teoria: SAML Federation Flow</h2>
+            <p>Come fa un utente che si logga sul computer aziendale (Active Directory/Okta) ad accedere alla console AWS senza creare un utente IAM?</p>
+            
+            <div class="flow-diagram">
+                <div class="flow-step"><strong>1. User Login</strong><br>Utente accede al portale IdP (es. Okta)</div>
+                <div class="flow-arrow">→</div>
+                <div class="flow-step"><strong>2. SAML Assertion</strong><br>IdP genera un file XML firmato che dice "Questo è Mario Rossi"</div>
+                <div class="flow-arrow">→</div>
+                <div class="flow-step"><strong>3. AWS Sign-in</strong><br>Browser invia l'XML all'endpoint AWS SAML</div>
+                <div class="flow-arrow">→</div>
+                <div class="flow-step"><strong>4. STS AssumeRole</strong><br>AWS valida la firma e scambia l'XML con Token Temporanei</div>
+                <div class="flow-arrow">→</div>
+                <div class="flow-step"><strong>5. Accesso</strong><br>Utente entra in Console con i permessi del Ruolo</div>
+            </div>
+
+            <div class="alert alert-info">
+                <strong>Vantaggio Chiave:</strong> Le credenziali non sono mai salvate in AWS. La gestione (assunzioni, licenziamenti, reset password) avviene solo nell'IdP aziendale.
+            </div>
+        </div>
+
+        <!-- Section 3: Lab Preparation -->
+        <div class="card">
+            <h2>3. Lab: Configurazione Lato AWS</h2>
+            <p>In questo lab configureremo la parte AWS per fidarsi di un provider esterno. Poiché non abbiamo un vero server Active Directory, simuleremo il file di metadati.</p>
+
+            <div class="step">
+                <h3><span class="step-number">1</span>Creazione File Metadata XML (Simulato)</h3>
+                <p>Crea un file sul tuo desktop chiamato <code>saml-metadata.xml</code> e incolla questo contenuto (è un placeholder valido per AWS):</p>
+                <pre><code>&lt;EntityDescriptor entityID="http://www.okta.com/exk12345" xmlns="urn:oasis:names:tc:SAML:2.0:metadata"&gt;
+  &lt;IDPSSODescriptor protocolSupportEnumeration="urn:oasis:names:tc:SAML:2.0:protocol"&gt;
+    &lt;KeyDescriptor use="signing"&gt;
+      &lt;ds:KeyInfo xmlns:ds="http://www.w3.org/2000/09/xmldsig#"&gt;
+        &lt;ds:X509Data&gt;
+          &lt;ds:X509Certificate&gt;MIIDpDCCAoygAwIBAgIGAV2... (TRUNCATED FOR LAB) ...&lt;/ds:X509Certificate&gt;
+        &lt;/ds:X509Data&gt;
+      &lt;/ds:KeyInfo&gt;
+    &lt;/KeyDescriptor&gt;
+    &lt;SingleSignOnService Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST" Location="https://dev-123456.oktapreview.com/app/exk12345/sso/saml"/&gt;
+  &lt;/IDPSSODescriptor&gt;
+&lt;/EntityDescriptor&gt;</code></pre>
+                <div class="alert alert-warning">Nota: Questo XML serve solo a sbloccare l'interfaccia AWS. Non funzionerà per un login reale senza un vero IdP.</div>
+            </div>
+
+            <div class="step">
+                <h3><span class="step-number">2</span>Creazione Identity Provider (IdP)</h3>
+                <ol>
+                    <li>Vai alla console <strong>IAM</strong>.</li>
+                    <li>Nel menu a sinistra, clicca su <strong>Identity providers</strong>.</li>
+                    <li>Clicca <strong>Add provider</strong>.</li>
+                    <li>Provider type: <strong>SAML</strong>.</li>
+                    <li>Provider name: <code>MyCorporateIdP</code>.</li>
+                    <li>Metadata document: Carica il file <code>saml-metadata.xml</code> creato prima.</li>
+                    <li>Clicca <strong>Add provider</strong>.</li>
+                </ol>
+                <p>Ora AWS "conosce" e si fida dell'entità descritta in quel file.</p>
+            </div>
+        </div>
+
+        <!-- Section 4: Role Creation -->
+        <div class="card">
+            <h2>4. Creazione del Ruolo Federato</h2>
+            <p>Ora creiamo il ruolo che gli utenti dell'IdP assumeranno.</p>
+
+            <div class="step">
+                <h3><span class="step-number">3</span>Configurazione Trust Relationship</h3>
+                <ol>
+                    <li>Vai su <strong>Roles</strong> -> <strong>Create role</strong>.</li>
+                    <li>Trusted entity type: <strong>SAML 2.0 federation</strong>.</li>
+                    <li>Choose a SAML 2.0 provider: Seleziona <code>MyCorporateIdP</code>.</li>
+                    <li>Allow programmatic and AWS Management Console access: Seleziona questa opzione.</li>
+                    <li>Clicca <strong>Next</strong>.</li>
+                </ol>
+            </div>
+
+            <div class="step">
+                <h3><span class="step-number">4</span>Permessi e Finalizzazione</h3>
+                <ol>
+                    <li><strong>Add permissions:</strong> Cerca e seleziona <code>ViewOnlyAccess</code> (Per sicurezza, diamo solo permessi di lettura).</li>
+                    <li>Clicca <strong>Next</strong>.</li>
+                    <li><strong>Role name:</strong> <code>SAML-ViewOnly-Role</code>.</li>
+                    <li>Clicca <strong>Create role</strong>.</li>
+                </ol>
+            </div>
+
+            <div class="step">
+                <h3><span class="step-number">5</span>Analisi della Trust Policy</h3>
+                <p>Vai nel ruolo appena creato e clicca sul tab <strong>Trust relationships</strong>. Vedrai un JSON simile a questo:</p>
+                <pre><code>{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "Federated": "arn:aws:iam::123456789012:saml-provider/MyCorporateIdP"
+      },
+      "Action": "sts:AssumeRoleWithSAML",
+      "Condition": {
+        "StringEquals": {
+          "SAML:aud": "https://signin.aws.amazon.com/saml"
+        }
+      }
+    }
+  ]
+}</code></pre>
+                <p><strong>Spiegazione Tecnica:</strong></p>
+                <ul>
+                    <li><strong>Principal:</strong> Chi può assumere il ruolo? Solo il provider SAML che abbiamo creato.</li>
+                    <li><strong>Action:</strong> Quale azione? <code>sts:AssumeRoleWithSAML</code> (specifica per la federation).</li>
+                    <li><strong>Condition:</strong> Controllo di sicurezza per assicurarsi che il login sia destinato alla console AWS.</li>
+                </ul>
+            </div>
+        </div>
+
+    </div>
+
+    <footer>
+        <p>Lab realizzato per scopi didattici su AWS IAM & Security.</p>
+        <p>Per consulenza su Enterprise Identity Management, visita <a href="http://www.marblemind.eu" target="_blank">www.marblemind.eu</a></p>
+    </footer>
+
+</body>
+</html>

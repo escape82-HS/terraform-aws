@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AWS VPC Deployment Lab</title>
+    <style>
+        :root {
+            --primary-color: #232f3e; /* AWS Dark Blue */
+            --secondary-color: #ff9900; /* AWS Orange */
+            --accent-color: #0073bb;
+            --bg-color: #f8f9fa;
+            --text-color: #333;
+            --card-bg: #ffffff;
+        }
+
+        body {
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            line-height: 1.6;
+            color: var(--text-color);
+            background-color: var(--bg-color);
+            margin: 0;
+            padding: 0;
+        }
+
+        /* Header */
+        header {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 2rem 0;
+            text-align: center;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        header h1 {
+            margin: 0;
+            font-size: 2.5rem;
+        }
+
+        header p {
+            margin-top: 10px;
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        /* Container */
+        .container {
+            max-width: 1000px;
+            margin: 40px auto;
+            padding: 0 20px;
+        }
+
+        /* Cards */
+        .card {
+            background: var(--card-bg);
+            border-radius: 8px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            border-left: 5px solid var(--secondary-color);
+        }
+
+        h2 {
+            color: var(--primary-color);
+            border-bottom: 2px solid #eee;
+            padding-bottom: 10px;
+            margin-top: 0;
+        }
+
+        h3 {
+            color: var(--accent-color);
+            margin-top: 25px;
+        }
+
+        /* Concepts Grid */
+        .concepts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .concept-item {
+            background: #f1f3f5;
+            padding: 15px;
+            border-radius: 6px;
+        }
+
+        .concept-item strong {
+            display: block;
+            color: var(--primary-color);
+            margin-bottom: 5px;
+        }
+
+        /* Steps */
+        .step {
+            margin-bottom: 25px;
+        }
+
+        .step-number {
+            display: inline-block;
+            background-color: var(--secondary-color);
+            color: var(--primary-color);
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 30px;
+            font-weight: bold;
+            margin-right: 10px;
+        }
+
+        .code-block {
+            background-color: #2d2d2d;
+            color: #f8f8f2;
+            padding: 15px;
+            border-radius: 5px;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 0.9rem;
+            margin: 10px 0;
+            overflow-x: auto;
+        }
+
+        .note {
+            background-color: #e7f3fe;
+            border-left: 4px solid #2196F3;
+            padding: 15px;
+            margin: 15px 0;
+            font-size: 0.95rem;
+        }
+
+        /* Footer */
+        footer {
+            text-align: center;
+            padding: 40px 0;
+            background-color: var(--primary-color);
+            color: white;
+            margin-top: 50px;
+        }
+
+        footer a {
+            color: var(--secondary-color);
+            text-decoration: none;
+            font-weight: bold;
+        }
+
+        footer a:hover {
+            text-decoration: underline;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            header h1 { font-size: 1.8rem; }
+            .container { padding: 0 15px; }
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>AWS VPC Hands-On Lab</h1>
+        <p>Guida pratica al deployment di un'infrastruttura di rete sicura</p>
+    </header>
+
+    <div class="container">
+
+        <!-- Section 1: Theory -->
+        <div class="card">
+            <h2>1. Concetti Fondamentali</h2>
+            <p>Prima di iniziare la configurazione, è essenziale comprendere i componenti che andremo a creare. Immagina la VPC come il tuo data center virtuale nel cloud.</p>
+            
+            <div class="concepts-grid">
+                <div class="concept-item">
+                    <strong>VPC (Virtual Private Cloud)</strong>
+                    Una rete virtuale logicamente isolata nel cloud AWS. È il contenitore principale per le tue risorse.
+                </div>
+                <div class="concept-item">
+                    <strong>Internet Gateway (IGW)</strong>
+                    La "porta" che permette la comunicazione tra le istanze nella tua VPC e Internet. Senza IGW, la VPC è chiusa.
+                </div>
+                <div class="concept-item">
+                    <strong>NAT Gateway</strong>
+                    Permette alle istanze nelle subnet private di connettersi a Internet (es. per aggiornamenti) impedendo a Internet di iniziare connessioni verso di esse.
+                </div>
+                <div class="concept-item">
+                    <strong>Security Groups</strong>
+                    Un firewall virtuale a livello di istanza. Controlla il traffico in entrata e in uscita (stateful).
+                </div>
+            </div>
+        </div>
+
+        <!-- Section 2: Scenario -->
+        <div class="card">
+            <h2>2. Scenario del Laboratorio</h2>
+            <p>Creeremo un'architettura classica a due livelli (Tier) in una singola Availability Zone per semplicità:</p>
+            <ul>
+                <li><strong>VPC CIDR:</strong> <code>10.0.0.0/16</code></li>
+                <li><strong>Public Subnet:</strong> <code>10.0.1.0/24</code> (Accessibile da Internet)</li>
+                <li><strong>Private Subnet:</strong> <code>10.0.2.0/24</code> (Isolata, accesso Internet solo via NAT)</li>
+            </ul>
+        </div>
+
+        <!-- Section 3: Execution -->
+        <div class="card">
+            <h2>3. Procedura di Deployment</h2>
+            
+            <div class="step">
+                <h3><span class="step-number">1</span>Creazione della VPC</h3>
+                <p>Accedi alla console AWS e vai al servizio <strong>VPC</strong>.</p>
+                <ol>
+                    <li>Clicca su "Create VPC".</li>
+                    <li>Seleziona "VPC only".</li>
+                    <li>Name tag: <code>MyLab-VPC</code>.</li>
+                    <li>IPv4 CIDR block: <code>10.0.0.0/16</code>.</li>
+                    <li>Clicca su <strong>Create VPC</strong>.</li>
+                </ol>
+            </div>
+
+            <div class="step">
+                <h3><span class="step-number">2</span>Creazione delle Subnet</h3>
+                <p>Nel menu a sinistra, clicca su <strong>Subnets</strong> -> "Create subnet". Seleziona la VPC appena creata.</p>
+                
+                <p><strong>Subnet 1 (Pubblica):</strong></p>
+                <ul>
+                    <li>Name: <code>Public-Subnet-1</code></li>
+                    <li>Availability Zone: <code>us-east-1a</code> (o la tua preferita)</li>
+                    <li>IPv4 CIDR block: <code>10.0.1.0/24</code></li>
+                </ul>
+
+                <p><strong>Subnet 2 (Privata):</strong></p>
+                <ul>
+                    <li>Name: <code>Private-Subnet-1</code></li>
+                    <li>Availability Zone: <code>us-east-1a</code> (stessa della pubblica)</li>
+                    <li>IPv4 CIDR block: <code>10.0.2.0/24</code></li>
+                </ul>
+                <p>Clicca su <strong>Create subnet</strong>.</p>
+            </div>
+
+            <div class="step">
+                <h3><span class="step-number">3</span>Internet Gateway (IGW)</h3>
+                <p>Per rendere la subnet pubblica accessibile, serve un gateway.</p>
+                <ol>
+                    <li>Vai su <strong>Internet gateways</strong> -> "Create internet gateway".</li>
+                    <li>Name: <code>MyLab-IGW</code>. Clicca Create.</li>
+                    <li>Seleziona l'IGW creato, clicca su <strong>Actions</strong> -> <strong>Attach to VPC</strong>.</li>
+                    <li>Seleziona <code>MyLab-VPC</code> e conferma.</li>
+                </ol>
+            </div>
+
+            <div class="step">
+                <h3><span class="step-number">4</span>NAT Gateway</h3>
+                <p>Per permettere alla subnet privata di scaricare aggiornamenti senza essere esposta.</p>
+                <ol>
+                    <li>Vai su <strong>NAT gateways</strong> -> "Create NAT gateway".</li>
+                    <li>Name: <code>MyLab-NAT</code>.</li>
+                    <li><strong>Subnet:</strong> Seleziona <code>Public-Subnet-1</code> (Il NAT deve vivere nella pubblica!).</li>
+                    <li>Connectivity type: Public.</li>
+                    <li>Clicca su "Allocate Elastic IP" per assegnare un IP statico.</li>
+                    <li>Clicca su <strong>Create NAT gateway</strong>.</li>
+                </ol>
+                <div class="note">Nota: Il NAT Gateway ha un costo orario anche se non utilizzato. Ricordati di cancellarlo alla fine del lab.</div>
+            </div>
+
+            <div class="step">
+                <h3><span class="step-number">5</span>Route Tables (Il cuore del routing)</h3>
+                <p>Dobbiamo dire al traffico dove andare.</p>
+
+                <p><strong>Configurazione Public Route Table:</strong></p>
+                <ol>
+                    <li>Vai su <strong>Route tables</strong> -> "Create route table".</li>
+                    <li>Name: <code>Public-RT</code>. VPC: <code>MyLab-VPC</code>. Create.</li>
+                    <li>Seleziona la tabella, vai su <strong>Routes</strong> -> "Edit routes".</li>
+                    <li>Add route: Destination <code>0.0.0.0/0</code> -> Target <code>Internet Gateway</code> (seleziona il tuo IGW). Save.</li>
+                    <li>Vai su <strong>Subnet associations</strong> -> "Edit subnet associations".</li>
+                    <li>Seleziona <code>Public-Subnet-1</code> e salva.</li>
+                </ol>
+
+                <p><strong>Configurazione Private Route Table:</strong></p>
+                <ol>
+                    <li>Crea una nuova route table chiamata <code>Private-RT</code>.</li>
+                    <li>Vai su <strong>Routes</strong> -> "Edit routes".</li>
+                    <li>Add route: Destination <code>0.0.0.0/0</code> -> Target <code>NAT Gateway</code> (seleziona il tuo NAT). Save.</li>
+                    <li>Vai su <strong>Subnet associations</strong> -> "Edit subnet associations".</li>
+                    <li>Seleziona <code>Private-Subnet-1</code> e salva.</li>
+                </ol>
+            </div>
+
+            <div class="step">
+                <h3><span class="step-number">6</span>Security Groups</h3>
+                <p>Creiamo un firewall per un ipotetico Web Server.</p>
+                <ol>
+                    <li>Vai su <strong>Security Groups</strong> -> "Create security group".</li>
+                    <li>Name: <code>Web-SG</code>. Description: Allow HTTP/SSH. VPC: <code>MyLab-VPC</code>.</li>
+                    <li><strong>Inbound rules:</strong>
+                        <ul>
+                            <li>Type: HTTP, Source: 0.0.0.0/0 (Tutto il mondo)</li>
+                            <li>Type: SSH, Source: My IP (Solo il tuo IP di casa per sicurezza)</li>
+                        </ul>
+                    </li>
+                    <li>Clicca <strong>Create security group</strong>.</li>
+                </ol>
+            </div>
+        </div>
+
+        <!-- Section 4: Verification -->
+        <div class="card">
+            <h2>4. Verifica e Pulizia</h2>
+            <p>La tua infrastruttura di rete è pronta! Ora potresti lanciare istanze EC2 nelle rispettive subnet. Un'istanza nella Public Subnet avrà un IP pubblico e sarà raggiungibile. Un'istanza nella Private Subnet non avrà IP pubblico diretto, ma potrà navigare in uscita grazie al NAT.</p>
+            
+            <div class="note" style="background-color: #fff3cd; border-left-color: #ffc107; color: #856404;">
+                <strong>IMPORTANTE: Pulizia Risorse</strong><br>
+                Per evitare costi indesiderati su AWS:
+                1. Cancella il NAT Gateway.
+                2. Rilascia l'Elastic IP.
+                3. Stacca e cancella l'Internet Gateway.
+                4. Cancella la VPC (questo rimuoverà subnet e route tables automaticamente).
+            </div>
+        </div>
+
+    </div>
+
+    <footer>
+        <p>Lab realizzato per scopi didattici.</p>
+        <p>Per ulteriori risorse e approfondimenti professionali, visita <a href="http://www.marblemind.eu" target="_blank">www.marblemind.eu</a></p>
+    </footer>
+
+</body>
+</html>

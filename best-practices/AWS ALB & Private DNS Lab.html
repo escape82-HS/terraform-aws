@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AWS ALB & Route53 Lab</title>
+    <style>
+        :root {
+            --primary-color: #232f3e;
+            --secondary-color: #ff9900;
+            --accent-color: #0073bb;
+            --bg-color: #f8f9fa;
+            --text-color: #333;
+            --card-bg: #ffffff;
+            --code-bg: #1e1e1e;
+        }
+
+        body {
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            line-height: 1.6;
+            color: var(--text-color);
+            background-color: var(--bg-color);
+            margin: 0;
+            padding: 0;
+        }
+
+        header {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 2rem 0;
+            text-align: center;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        header h1 { margin: 0; font-size: 2.5rem; }
+        header p { margin-top: 10px; font-size: 1.1rem; opacity: 0.9; }
+
+        .container {
+            max-width: 1000px;
+            margin: 40px auto;
+            padding: 0 20px;
+        }
+
+        .card {
+            background: var(--card-bg);
+            border-radius: 8px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            border-left: 5px solid var(--secondary-color);
+        }
+
+        h2 {
+            color: var(--primary-color);
+            border-bottom: 2px solid #eee;
+            padding-bottom: 10px;
+            margin-top: 0;
+        }
+
+        h3 { color: var(--accent-color); margin-top: 25px; }
+
+        /* Comparison Table */
+        .comparison-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            font-size: 0.95rem;
+        }
+
+        .comparison-table th, .comparison-table td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: left;
+        }
+
+        .comparison-table th {
+            background-color: var(--primary-color);
+            color: white;
+        }
+
+        .comparison-table tr:nth-child(even) {
+            background-color: #f2f2f2;
+        }
+
+        /* Steps */
+        .step-number {
+            display: inline-block;
+            background-color: var(--secondary-color);
+            color: var(--primary-color);
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 30px;
+            font-weight: bold;
+            margin-right: 10px;
+        }
+
+        pre {
+            background-color: var(--code-bg);
+            color: #d4d4d4;
+            padding: 15px;
+            border-radius: 6px;
+            overflow-x: auto;
+        }
+
+        .alert {
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+            border-left: 4px solid;
+        }
+        
+        .alert-info { background-color: #e3f2fd; border-color: #2196f3; }
+        .alert-warning { background-color: #fff3cd; border-color: #ffc107; }
+
+        footer {
+            text-align: center;
+            padding: 40px 0;
+            background-color: var(--primary-color);
+            color: white;
+            margin-top: 50px;
+        }
+        
+        footer a { color: var(--secondary-color); text-decoration: none; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>AWS ALB & Private DNS Lab</h1>
+        <p>Traffic Distribution, SSL Termination e Internal Hosting</p>
+    </header>
+
+    <div class="container">
+
+        <!-- Section 1: Theory -->
+        <div class="card">
+            <h2>1. ALB vs ELB (Classic)</h2>
+            <p>Prima di configurare il Load Balancer, è fondamentale capire l'evoluzione da Classic Load Balancer (CLB) ad Application Load Balancer (ALB).</p>
+            
+            <table class="comparison-table">
+                <thead>
+                    <tr>
+                        <th>Caratteristica</th>
+                        <th>Classic Load Balancer (ELB v1)</th>
+                        <th>Application Load Balancer (ALB v2)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>Layer OSI</strong></td>
+                        <td>Layer 4 (Transport) & Layer 7 (App)</td>
+                        <td><strong>Solo Layer 7 (Application)</strong></td>
+                    </tr>
+                    <tr>
+                        <td><strong>Routing</strong></td>
+                        <td>Round Robin semplice.</td>
+                        <td><strong>Intelligente:</strong> Basato su URL Path (/api, /img), Host Header (site1.com, site2.com), Query String.</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Target</strong></td>
+                        <td>Solo Istanze EC2.</td>
+                        <td>Istanze EC2, Indirizzi IP, Funzioni Lambda, Container (ECS/EKS).</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Architettura</strong></td>
+                        <td>Monolitica.</td>
+                        <td>Basata su <strong>Target Groups</strong> (Gruppi di destinazione flessibili).</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Section 2: Prerequisites -->
+        <div class="card">
+            <h2>2. Preparazione Ambiente</h2>
+            <p>Per testare il bilanciamento, abbiamo bisogno di due server web che mostrino contenuti diversi (per capire chi risponde).</p>
+            
+            <div class="step">
+                <h3><span class="step-number">1</span>Lancio Istanze Web</h3>
+                <p>Lancia <strong>2 istanze EC2</strong> (es. <code>Web-Server-A</code> e <code>Web-Server-B</code>) in due <strong>Subnet diverse</strong> (es. us-east-1a e us-east-1b) per l'alta affidabilità.</p>
+                <p>Usa questo <strong>User Data</strong> per entrambe:</p>
+                <pre><code>#!/bin/bash
+yum update -y
+yum install -y httpd
+systemctl start httpd
+systemctl enable httpd
+# Scrive l'hostname nel file index per identificare il server
+echo "&lt;h1&gt;Risposta dal Server: $(hostname -f)&lt;/h1&gt;" > /var/www/html/index.html</code></pre>
+                <div class="alert alert-warning">Assicurati che il Security Group delle istanze permetta traffico HTTP (80) dal Security Group del Load Balancer (che creeremo dopo) o da 0.0.0.0/0 per semplicità in questo lab.</div>
+            </div>
+        </div>
+
+        <!-- Section 3: SSL Certificate -->
+        <div class="card">
+            <h2>3. Certificato SSL (Self-Signed)</h2>
+            <p>In un ambiente reale useresti un certificato pubblico. Per questo lab, genereremo un certificato autofirmato e lo caricheremo su AWS ACM (Certificate Manager).</p>
+
+            <div class="step">
+                <h3><span class="step-number">2</span>Generazione e Importazione</h3>
+                <p>Se hai un terminale Linux/Mac (o Git Bash su Windows), esegui:</p>
+                <pre><code>openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+  -keyout privateKey.pem -out certificate.pem \
+  -subj "/C=IT/ST=Italy/L=Rome/O=MarbleMind/CN=internal.lab"</code></pre>
+                
+                <p>Ora importa il certificato in AWS:</p>
+                <ol>
+                    <li>Vai alla console <strong>AWS Certificate Manager (ACM)</strong>.</li>
+                    <li>Clicca su "Import a certificate".</li>
+                    <li><strong>Certificate body:</strong> Incolla il contenuto di <code>certificate.pem</code>.</li>
+                    <li><strong>Certificate private key:</strong> Incolla il contenuto di <code>privateKey.pem</code>.</li>
+                    <li>Clicca su <strong>Import</strong>. Copia l'ARN del certificato.</li>
+                </ol>
+            </div>
+        </div>
+
+        <!-- Section 4: ALB Deployment -->
+        <div class="card">
+            <h2>4. Deployment Application Load Balancer</h2>
+            
+            <div class="step">
+                <h3><span class="step-number">3</span>Creazione Target Group</h3>
+                <ol>
+                    <li>Vai su EC2 -> <strong>Target Groups</strong> -> "Create target group".</li>
+                    <li>Target type: <strong>Instances</strong>.</li>
+                    <li>Name: <code>Web-Servers-TG</code>. Protocol: HTTP 80.</li>
+                    <li>Seleziona la VPC corretta. Next.</li>
+                    <li>Seleziona le due istanze create (A e B) e clicca "Include as pending below".</li>
+                    <li>Clicca <strong>Create target group</strong>.</li>
+                </ol>
+            </div>
+
+            <div class="step">
+                <h3><span class="step-number">4</span>Configurazione ALB</h3>
+                <ol>
+                    <li>Vai su EC2 -> <strong>Load Balancers</strong> -> "Create load balancer".</li>
+                    <li>Seleziona <strong>Application Load Balancer</strong>.</li>
+                    <li>Name: <code>My-App-ALB</code>. Scheme: <strong>Internet-facing</strong>.</li>
+                    <li><strong>Network mapping:</strong> Seleziona almeno 2 Subnet in AZ diverse.</li>
+                    <li><strong>Security Group:</strong> Crea un nuovo SG che permetta traffico HTTPS (443) e HTTP (80) da 0.0.0.0/0.</li>
+                    <li><strong>Listeners and routing:</strong>
+                        <ul>
+                            <li>Listener HTTP:80 -> Redirect to HTTPS:443 (Best Practice).</li>
+                            <li>Listener HTTPS:443 -> Forward to <code>Web-Servers-TG</code>.</li>
+                        </ul>
+                    </li>
+                    <li><strong>Secure listener settings:</strong> Seleziona il certificato importato al punto 2.</li>
+                    <li>Clicca <strong>Create load balancer</strong>.</li>
+                </ol>
+            </div>
+        </div>
+
+        <!-- Section 5: Route 53 Private DNS -->
+        <div class="card">
+            <h2>5. Route 53 Private Hosted Zone</h2>
+            <p>Vogliamo che le nostre applicazioni interne raggiungano il bilanciatore usando un nome dominio privato (es. <code>app.internal.lab</code>) invece del lungo nome DNS pubblico di AWS.</p>
+
+            <div class="step">
+                <h3><span class="step-number">5</span>Creazione Zona DNS</h3>
+                <ol>
+                    <li>Vai alla console <strong>Route 53</strong> -> "Hosted zones" -> "Create hosted zone".</li>
+                    <li>Domain name: <code>internal.lab</code>.</li>
+                    <li>Type: <strong>Private hosted zone</strong>.</li>
+                    <li>Region/VPC ID: Seleziona la regione e la VPC dove risiedono le tue istanze e l'ALB.</li>
+                    <li>Clicca <strong>Create hosted zone</strong>.</li>
+                </ol>
+            </div>
+
+            <div class="step">
+                <h3><span class="step-number">6</span>Creazione Record Alias</h3>
+                <ol>
+                    <li>Entra nella zona appena creata. Clicca "Create record".</li>
+                    <li>Record name: <code>app</code> (quindi diventerà app.internal.lab).</li>
+                    <li>Record type: <strong>A</strong>.</li>
+                    <li>Attiva lo switch <strong>Alias</strong>.</li>
+                    <li>Route traffic to: <strong>Alias to Application and Classic Load Balancer</strong>.</li>
+                    <li>Region: La tua regione.</li>
+                    <li>Load balancer: Seleziona <code>My-App-ALB</code>.</li>
+                    <li>Clicca <strong>Create records</strong>.</li>
+                </ol>
+            </div>
+        </div>
+
+        <!-- Section 6: Verification -->
+        <div class="card">
+            <h2>6. Verifica Finale</h2>
+            <div class="alert alert-info">
+                <strong>Nota Importante:</strong> Poiché abbiamo creato una <em>Private Hosted Zone</em>, il dominio <code>app.internal.lab</code> risolverà SOLO dall'interno della VPC.
+            </div>
+            <p>Per testare:</p>
+            <ol>
+                <li>Usa il <strong>Session Manager</strong> (dal lab precedente) per entrare in un'istanza EC2 dentro la stessa VPC.</li>
+                <li>Esegui il comando: <code>curl -k https://app.internal.lab</code></li>
+                <li>Dovresti vedere l'HTML di risposta. Se ripeti il comando, dovresti vedere alternarsi i nomi dei server (Server A / Server B) grazie al bilanciamento.</li>
+                <li>L'opzione <code>-k</code> serve a ignorare l'errore del certificato self-signed.</li>
+            </ol>
+        </div>
+
+    </div>
+
+    <footer>
+        <p>Lab avanzato di Load Balancing e DNS.</p>
+        <p>Per architetture AWS scalabili, visita <a href="http://www.marblemind.eu" target="_blank">www.marblemind.eu</a></p>
+    </footer>
+
+</body>
+</html>

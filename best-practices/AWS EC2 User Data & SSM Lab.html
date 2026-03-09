@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AWS EC2 User Data & SSM Lab</title>
+    <style>
+        :root {
+            --primary-color: #232f3e; /* AWS Dark Blue */
+            --secondary-color: #ff9900; /* AWS Orange */
+            --accent-color: #0073bb;
+            --bg-color: #f8f9fa;
+            --text-color: #333;
+            --card-bg: #ffffff;
+            --code-bg: #1e1e1e;
+            --success-color: #28a745;
+        }
+
+        body {
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            line-height: 1.6;
+            color: var(--text-color);
+            background-color: var(--bg-color);
+            margin: 0;
+            padding: 0;
+        }
+
+        /* Header */
+        header {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 2rem 0;
+            text-align: center;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        header h1 {
+            margin: 0;
+            font-size: 2.5rem;
+        }
+
+        header p {
+            margin-top: 10px;
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        /* Container */
+        .container {
+            max-width: 1000px;
+            margin: 40px auto;
+            padding: 0 20px;
+        }
+
+        /* Cards */
+        .card {
+            background: var(--card-bg);
+            border-radius: 8px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            border-left: 5px solid var(--secondary-color);
+        }
+
+        h2 {
+            color: var(--primary-color);
+            border-bottom: 2px solid #eee;
+            padding-bottom: 10px;
+            margin-top: 0;
+        }
+
+        h3 {
+            color: var(--accent-color);
+            margin-top: 25px;
+            font-size: 1.3rem;
+        }
+
+        /* Steps */
+        .step {
+            margin-bottom: 25px;
+        }
+
+        .step-number {
+            display: inline-block;
+            background-color: var(--secondary-color);
+            color: var(--primary-color);
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 30px;
+            font-weight: bold;
+            margin-right: 10px;
+        }
+
+        /* Code Blocks */
+        pre {
+            background-color: var(--code-bg);
+            color: #d4d4d4;
+            padding: 15px;
+            border-radius: 6px;
+            overflow-x: auto;
+            position: relative;
+        }
+
+        code {
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+        }
+
+        .script-header {
+            color: #569cd6; /* Blue for bash comments/shebang */
+            font-weight: bold;
+        }
+
+        .script-cmd {
+            color: #dcdcaa; /* Yellowish for commands */
+        }
+
+        /* Alerts */
+        .alert {
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+            font-size: 0.95rem;
+        }
+
+        .alert-info {
+            background-color: #e3f2fd;
+            border-left: 4px solid #2196f3;
+            color: #0c5460;
+        }
+
+        .alert-warning {
+            background-color: #fff3cd;
+            border-left: 4px solid #ffc107;
+            color: #856404;
+        }
+
+        /* Footer */
+        footer {
+            text-align: center;
+            padding: 40px 0;
+            background-color: var(--primary-color);
+            color: white;
+            margin-top: 50px;
+        }
+
+        footer a {
+            color: var(--secondary-color);
+            text-decoration: none;
+            font-weight: bold;
+        }
+
+        footer a:hover {
+            text-decoration: underline;
+        }
+
+        @media (max-width: 768px) {
+            .container { padding: 0 15px; }
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>AWS EC2 User Data & SSM Lab</h1>
+        <p>Automazione del bootstrap e gestione sicura senza SSH</p>
+    </header>
+
+    <div class="container">
+
+        <!-- Section 1: Theory -->
+        <div class="card">
+            <h2>1. Obiettivo e Concetti</h2>
+            <p>In questo laboratorio lanceremo un'istanza EC2 in una subnet privata (Back-end). Poiché non avrà un indirizzo IP pubblico, non potremo connetterci via SSH tradizionale. Utilizzeremo <strong>AWS Systems Manager (SSM)</strong> per l'accesso e <strong>User Data</strong> per la configurazione automatica.</p>
+            
+            <div class="alert alert-info">
+                <strong>User Data:</strong> Uno script (solitamente Bash per Linux) che viene eseguito automaticamente dall'agente <code>cloud-init</code> solo al <strong>primo avvio</strong> dell'istanza. Serve per installare software, creare utenti e configurare il sistema.
+            </div>
+
+            <div class="alert alert-info">
+                <strong>AWS SSM Agent:</strong> Un software che permette ad AWS Systems Manager di aggiornare, gestire e configurare l'istanza. Permette l'accesso "Session Manager" (shell nel browser) senza aprire la porta 22.
+            </div>
+        </div>
+
+        <!-- Section 2: IAM Role -->
+        <div class="card">
+            <h2>2. Prerequisito: IAM Role</h2>
+            <p>Perché SSM funzioni, l'istanza EC2 deve avere il permesso di parlare con le API di Systems Manager. Dobbiamo creare un Ruolo IAM.</p>
+            
+            <div class="step">
+                <h3><span class="step-number">1</span>Creazione del Ruolo</h3>
+                <ol>
+                    <li>Vai alla console <strong>IAM</strong> -> <strong>Roles</strong> -> "Create role".</li>
+                    <li>Trusted entity type: <strong>AWS Service</strong>.</li>
+                    <li>Service or use case: <strong>EC2</strong>.</li>
+                    <li>Clicca su Next.</li>
+                    <li>Nella ricerca permessi, scrivi: <code>AmazonSSMManagedInstanceCore</code>.</li>
+                    <li>Seleziona la casella accanto a questa policy. Clicca Next.</li>
+                    <li><strong>Role name:</strong> <code>EC2-SSM-Role</code>.</li>
+                    <li>Clicca su <strong>Create role</strong>.</li>
+                </ol>
+            </div>
+        </div>
+
+        <!-- Section 3: Launch Instance -->
+        <div class="card">
+            <h2>3. Configurazione e Lancio EC2</h2>
+            
+            <div class="step">
+                <h3><span class="step-number">2</span>Configurazione Base</h3>
+                <p>Vai alla console <strong>EC2</strong> -> "Launch instance".</p>
+                <ul>
+                    <li><strong>Name:</strong> <code>Backend-Worker-01</code></li>
+                    <li><strong>AMI:</strong> Amazon Linux 2023 AMI (Free tier eligible).</li>
+                    <li><strong>Instance type:</strong> t2.micro o t3.micro.</li>
+                    <li><strong>Key pair:</strong> Proceed without a key pair (Non useremo SSH!).</li>
+                </ul>
+            </div>
+
+            <div class="step">
+                <h3><span class="step-number">3</span>Network Settings</h3>
+                <p>Clicca su "Edit" nella sezione Network.</p>
+                <ul>
+                    <li><strong>VPC:</strong> Seleziona la VPC creata nel Lab 1.</li>
+                    <li><strong>Subnet:</strong> Seleziona la <strong>Private Subnet</strong> (Back-end).</li>
+                    <li><strong>Auto-assign Public IP:</strong> Disable (Importante!).</li>
+                    <li><strong>Security Group:</strong> Crea un nuovo SG chiamato <code>SSM-Only-SG</code>. Non è necessario aggiungere nessuna regola Inbound per far funzionare SSM (basta l'Outbound verso HTTPS che è attivo di default).</li>
+                </ul>
+            </div>
+
+            <div class="step">
+                <h3><span class="step-number">4</span>Advanced Details: IAM & User Data</h3>
+                <p>Espandi la sezione "Advanced details" in fondo alla pagina.</p>
+                
+                <p><strong>IAM instance profile:</strong> Seleziona <code>EC2-SSM-Role</code> (creato nel passo 1).</p>
+                
+                <p><strong>User data:</strong> Copia e incolla il seguente script nel box.</p>
+                <pre><code><span class="script-header">#!/bin/bash</span>
+
+<span class="script-header"># 1. Aggiornamento del sistema</span>
+dnf update -y
+
+<span class="script-header"># 2. Installazione/Verifica SSM Agent</span>
+<span class="script-header"># Su Amazon Linux 2023 è preinstallato, ma forziamo l'installazione per sicurezza</span>
+dnf install -y amazon-ssm-agent
+systemctl enable amazon-ssm-agent
+systemctl start amazon-ssm-agent
+
+<span class="script-header"># 3. Creazione Utente Locale 'testuser'</span>
+<span class="script-header"># -m crea la home directory</span>
+useradd -m testuser
+
+<span class="script-header"># 4. Configurazione permessi (opzionale: aggiunge al gruppo wheel per sudo)</span>
+usermod -aG wheel testuser
+
+<span class="script-header"># 5. Log di completamento</span>
+echo "Setup completato il $(date)" > /var/log/user-data-complete.log</code></pre>
+                
+                <p>Clicca su <strong>Launch instance</strong>.</p>
+            </div>
+        </div>
+
+        <!-- Section 4: Verification -->
+        <div class="card">
+            <h2>4. Verifica e Accesso</h2>
+            <p>Attendi circa 2-3 minuti affinché l'istanza si avvii e lo script User Data venga eseguito.</p>
+
+            <div class="step">
+                <h3><span class="step-number">5</span>Connessione via Session Manager</h3>
+                <ol>
+                    <li>Seleziona l'istanza appena creata nella console EC2.</li>
+                    <li>Clicca sul pulsante <strong>Connect</strong> in alto.</li>
+                    <li>Vai alla tab <strong>Session Manager</strong>.</li>
+                    <li>Se tutto è configurato correttamente (Ruolo IAM + NAT Gateway funzionante per uscire su internet), il pulsante <strong>Connect</strong> sarà arancione attivo. Cliccalo.</li>
+                </ol>
+                <div class="alert alert-warning">
+                    <strong>Nota:</strong> Se il pulsante è grigio, verifica che la Subnet Privata abbia una rotta verso il NAT Gateway. L'agente SSM deve poter contattare gli endpoint AWS su Internet.
+                </div>
+            </div>
+
+            <div class="step">
+                <h3><span class="step-number">6</span>Verifica User Data</h3>
+                <p>Una volta aperto il terminale nel browser:</p>
+                <pre><code><span class="script-cmd"># Verifica che l'utente esista</span>
+id testuser
+
+<span class="script-cmd"># Verifica il log creato dallo script</span>
+cat /var/log/user-data-complete.log
+
+<span class="script-cmd"># Diventa l'utente testuser</span>
+sudo su - testuser</code></pre>
+            </div>
+        </div>
+
+    </div>
+
+    <footer>
+        <p>Lab realizzato per scopi didattici su automazione EC2.</p>
+        <p>Per approfondimenti su Cloud Engineering, visita <a href="http://www.marblemind.eu" target="_blank">www.marblemind.eu</a></p>
+    </footer>
+
+</body>
+</html>
