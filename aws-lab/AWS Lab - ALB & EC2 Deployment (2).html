@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AWS Lab: Deployment Infrastruttura Web</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'Monaco', 'Consolas', 'monospace'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#f0f9ff',
+                            100: '#e0f2fe',
+                            500: '#0ea5e9',
+                            600: '#0284c7',
+                            900: '#0c4a6e',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+        .step-number { min-width: 2.5rem; height: 2.5rem; }
+        .code-block { tab-size: 4; }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800 font-sans leading-relaxed">
+
+    <!-- Header -->
+    <header class="bg-brand-900 text-white border-b-4 border-brand-500">
+        <div class="max-w-5xl mx-auto px-6 py-12">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h1 class="text-3xl md:text-4xl font-bold mb-3 tracking-tight">
+                        <i class="fab fa-aws text-brand-500 mr-3"></i>Laboratorio AWS
+                    </h1>
+                    <p class="text-brand-100 text-lg max-w-2xl">
+                        Deployment di un'architettura web scalabile con VPC, EC2 Linux (Apache) e Application Load Balancer.
+                    </p>
+                </div>
+                <div class="hidden md:block text-right">
+                    <span class="bg-brand-800 text-brand-100 text-xs font-semibold px-3 py-1 rounded-full uppercase tracking-wider">
+                        Livello: Intermedio
+                    </span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-5xl mx-auto px-6 py-10">
+
+        <!-- Architecture Overview -->
+        <section class="bg-white rounded-xl shadow-sm border border-gray-200 p-8 mb-10">
+            <h2 class="text-xl font-semibold text-gray-900 mb-6 border-b pb-3">Panoramica dell'Architettura</h2>
+            <div class="grid md:grid-cols-2 gap-8 items-center">
+                <div>
+                    <ul class="space-y-3 text-gray-600">
+                        <li class="flex items-start">
+                            <i class="fas fa-network-wired text-brand-500 mt-1 mr-3"></i>
+                            <span><strong>VPC Dedicata:</strong> Rete isolata con segmentazione logica.</span>
+                        </li>
+                        <li class="flex items-start">
+                            <i class="fas fa-project-diagram text-brand-500 mt-1 mr-3"></i>
+                            <span><strong>Subnet Front-End:</strong> Ospita l'Application Load Balancer (ALB) esposto su Internet.</span>
+                        </li>
+                        <li class="flex items-start">
+                            <i class="fas fa-server text-brand-500 mt-1 mr-3"></i>
+                            <span><strong>Subnet Back-End:</strong> Ospita l'istanza EC2 Linux protetta.</span>
+                        </li>
+                        <li class="flex items-start">
+                            <i class="fas fa-shield-alt text-brand-500 mt-1 mr-3"></i>
+                            <span><strong>Security Groups:</strong> Regole firewall rigide (traffico EC2 consentito solo da ALB).</span>
+                        </li>
+                    </ul>
+                </div>
+                <div class="bg-gray-50 p-6 rounded-lg border border-gray-100 text-center">
+                    <p class="text-sm text-gray-500 mb-4 font-medium uppercase tracking-wide">Flusso del Traffico</p>
+                    <div class="flex items-center justify-center space-x-4 text-gray-700 font-medium">
+                        <span>Utente</span>
+                        <i class="fas fa-arrow-right text-brand-500"></i>
+                        <span class="bg-white px-3 py-2 rounded shadow-sm border">ALB</span>
+                        <i class="fas fa-arrow-right text-brand-500"></i>
+                        <span class="bg-white px-3 py-2 rounded shadow-sm border">EC2 (Apache)</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Step 1 -->
+        <section class="bg-white rounded-xl shadow-sm border border-gray-200 p-8 mb-8">
+            <div class="flex items-start mb-6">
+                <div class="step-number bg-brand-100 text-brand-600 font-bold rounded-lg flex items-center justify-center text-lg mr-5 mt-1">1</div>
+                <div>
+                    <h3 class="text-xl font-semibold text-gray-900">Configurazione della Rete (VPC & Subnets)</h3>
+                    <p class="text-gray-500 mt-1">Creazione dell'infrastruttura di rete di base.</p>
+                </div>
+            </div>
+            <div class="pl-14">
+                <ol class="list-decimal list-outside ml-4 space-y-4 text-gray-600">
+                    <li>Accedi alla console AWS e naviga nel servizio <strong>VPC</strong>.</li>
+                    <li>Clicca su <strong>Create VPC</strong>, seleziona <em>VPC only</em> e nominala <code class="bg-gray-100 text-gray-800 px-2 py-0.5 rounded text-sm">Lab-VPC</code> (CIDR: <code class="bg-gray-100 text-gray-800 px-2 py-0.5 rounded text-sm">10.0.0.0/16</code>).</li>
+                    <li>Vai su <strong>Subnets</strong> e crea tre sottoreti:
+                        <ul class="list-disc list-outside ml-6 mt-3 space-y-2 text-sm">
+                            <li><strong>Front-End Subnet A:</strong> AZ <em>eu-south-1a</em>, CIDR <code class="bg-gray-100 px-1 rounded">10.0.1.0/24</code>.</li>
+                            <li><strong>Front-End Subnet B:</strong> AZ <em>eu-south-1b</em>, CIDR <code class="bg-gray-100 px-1 rounded">10.0.2.0/24</code> (Richiesta per l'ALB).</li>
+                            <li><strong>Back-End Subnet:</strong> AZ <em>eu-south-1a</em>, CIDR <code class="bg-gray-100 px-1 rounded">10.0.3.0/24</code>.</li>
+                        </ul>
+                    </li>
+                    <li>Crea un <strong>Internet Gateway</strong> (<code class="bg-gray-100 px-1 rounded">Lab-IGW</code>) e attaccalo alla <em>Lab-VPC</em>.</li>
+                    <li>Aggiorna la <strong>Route Table</strong> associata alle Subnet Front-End aggiungendo una rotta: Destinazione <code class="bg-gray-100 px-1 rounded">0.0.0.0/0</code> verso il Target <code class="bg-gray-100 px-1 rounded">Lab-IGW</code>.</li>
+                </ol>
+                <div class="mt-4 bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-r-md">
+                    <p class="text-sm text-yellow-800">
+                        <strong>Nota per il Lab:</strong> Per evitare i costi di un NAT Gateway, assegneremo un IP pubblico temporaneo all'istanza EC2 nella Back-End subnet per permetterle di scaricare Apache, ma bloccheremo gli accessi diretti tramite Security Group.
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Step 2 -->
+        <section class="bg-white rounded-xl shadow-sm border border-gray-200 p-8 mb-8">
+            <div class="flex items-start mb-6">
+                <div class="step-number bg-brand-100 text-brand-600 font-bold rounded-lg flex items-center justify-center text-lg mr-5 mt-1">2</div>
+                <div>
+                    <h3 class="text-xl font-semibold text-gray-900">Configurazione dei Security Groups</h3>
+                    <p class="text-gray-500 mt-1">Definizione delle regole di firewalling per isolare i livelli.</p>
+                </div>
+            </div>
+            <div class="pl-14">
+                <p class="text-gray-600 mb-5">Naviga su <strong>EC2 &gt; Security Groups</strong> e crea due gruppi associati alla <code class="bg-gray-100 px-1 rounded text-sm">Lab-VPC</code>:</p>
+                
+                <div class="grid md:grid-cols-2 gap-6">
+                    <div class="border border-gray-200 rounded-lg overflow-hidden">
+                        <div class="bg-gray-50 px-4 py-3 border-b border-gray-200">
+                            <h4 class="font-semibold text-gray-800">1. SG-FrontEnd-ALB</h4>
+                        </div>
+                        <div class="p-4 bg-white">
+                            <p class="text-sm text-gray-500 mb-3">Consente il traffico web dal mondo esterno verso il Load Balancer.</p>
+                            <ul class="text-sm text-gray-700 space-y-2">
+                                <li><span class="font-medium text-gray-900">Inbound:</span> HTTP (80) da <code class="bg-gray-100 px-1 rounded">0.0.0.0/0</code></li>
+                                <li><span class="font-medium text-gray-900">Outbound:</span> Tutto il traffico</li>
+                            </ul>
+                        </div>
+                    </div>
+                    
+                    <div class="border border-gray-200 rounded-lg overflow-hidden">
+                        <div class="bg-gray-50 px-4 py-3 border-b border-gray-200">
+                            <h4 class="font-semibold text-gray-800">2. SG-BackEnd-EC2</h4>
+                        </div>
+                        <div class="p-4 bg-white">
+                            <p class="text-sm text-gray-500 mb-3">Consente il traffico web SOLO se proveniente dal Load Balancer.</p>
+                            <ul class="text-sm text-gray-700 space-y-2">
+                                <li><span class="font-medium text-gray-900">Inbound:</span> HTTP (80) da <code class="bg-gray-100 px-1 rounded">SG-FrontEnd-ALB</code></li>
+                                <li><span class="font-medium text-gray-900">Outbound:</span> Tutto il traffico</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Step 3 -->
+        <section class="bg-white rounded-xl shadow-sm border border-gray-200 p-8 mb-8">
+            <div class="flex items-start mb-6">
+                <div class="step-number bg-brand-100 text-brand-600 font-bold rounded-lg flex items-center justify-center text-lg mr-5 mt-1">3</div>
+                <div>
+                    <h3 class="text-xl font-semibold text-gray-900">Deployment Istanza EC2 (Web Server)</h3>
+                    <p class="text-gray-500 mt-1">Lancio del server Linux con bootstrap automatico di Apache.</p>
+                </div>
+            </div>
+            <div class="pl-14">
+                <ol class="list-decimal list-outside ml-4 space-y-3 text-gray-600 mb-6">
+                    <li>Vai su <strong>EC2 &gt; Instances &gt; Launch instances</strong>.</li>
+                    <li><strong>Nome:</strong> <code class="bg-gray-100 px-1 rounded text-sm">Lab-WebServer</code></li>
+                    <li><strong>AMI & Tipo:</strong> Amazon Linux 2023 (o Ubuntu), tipo <code class="bg-gray-100 px-1 rounded text-sm">t2.micro</code> (Free Tier).</li>
+                    <li><strong>Network settings:</strong> Seleziona <code class="bg-gray-100 px-1 rounded text-sm">Lab-VPC</code>, scegli la <strong>Back-End Subnet</strong>. Abilita <em>Auto-assign public IP</em> (solo per permettere l'installazione dei pacchetti in questo lab).</li>
+                    <li><strong>Firewall:</strong> Seleziona <em>Select existing security group</em> e scegli <code class="bg-gray-100 px-1 rounded text-sm">SG-BackEnd-EC2</code>.</li>
+                    <li>Espandi <strong>Advanced details</strong>, scorri fino a <strong>User data</strong> e incolla lo script sottostante.</li>
+                </ol>
+
+                <div class="rounded-lg overflow-hidden border border-gray-800 bg-gray-900 shadow-md">
+                    <div class="flex items-center justify-between px-4 py-2 bg-gray-800 border-b border-gray-700">
+                        <span class="text-xs font-mono text-gray-400">bash (User Data)</span>
+                    </div>
+                    <pre class="p-4 overflow-x-auto text-sm text-gray-300 font-mono leading-relaxed code-block"><code>#!/bin/bash
+# Aggiornamento del sistema
+yum update -y
+
+# Installazione e avvio di Apache
+yum install -y httpd
+systemctl start httpd
+systemctl enable httpd
+
+# Creazione della pagina web HTML
+cat &lt;&lt; 'EOF' &gt; /var/www/html/index.html
+&lt;!DOCTYPE html&gt;
+&lt;html lang="it"&gt;
+&lt;head&gt;
+    &lt;meta charset="UTF-8"&gt;
+    &lt;title&gt;AWS Deployment Lab&lt;/title&gt;
+    &lt;style&gt;
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f8fafc; color: #334155; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        .card { background: white; padding: 3rem; border-radius: 12px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); text-align: center; max-width: 600px; border-top: 4px solid #0ea5e9; }
+        h1 { color: #0f172a; margin-bottom: 1rem; }
+        p { margin-bottom: 1.5rem; line-height: 1.6; }
+        .btn { display: inline-block; background-color: #0ea5e9; color: white; padding: 10px 24px; text-decoration: none; border-radius: 6px; font-weight: 600; transition: background 0.3s; }
+        .btn:hover { background-color: #0284c7; }
+    &lt;/style&gt;
+&lt;/head&gt;
+&lt;body&gt;
+    &lt;div class="card"&gt;
+        &lt;h1&gt;Infrastruttura Distribuita con Successo!&lt;/h1&gt;
+        &lt;p&gt;Questa istanza EC2 sta rispondendo da una subnet di Back-End, servita in modo sicuro tramite un Application Load Balancer di AWS.&lt;/p&gt;
+        &lt;a href="https://www.marblemind.eu" target="_blank" class="btn"&gt;Visita www.marblemind.eu&lt;/a&gt;
+    &lt;/div&gt;
+&lt;/body&gt;
+&lt;/html&gt;
+EOF</code></pre>
+                </div>
+            </div>
+        </section>
+
+        <!-- Step 4 -->
+        <section class="bg-white rounded-xl shadow-sm border border-gray-200 p-8 mb-8">
+            <div class="flex items-start mb-6">
+                <div class="step-number bg-brand-100 text-brand-600 font-bold rounded-lg flex items-center justify-center text-lg mr-5 mt-1">4</div>
+                <div>
+                    <h3 class="text-xl font-semibold text-gray-900">Configurazione Application Load Balancer (ALB)</h3>
+                    <p class="text-gray-500 mt-1">Creazione del punto di accesso pubblico che instrada il traffico all'EC2.</p>
+                </div>
+            </div>
+            <div class="pl-14">
+                <h4 class="font-semibold text-gray-800 mb-3">A. Creazione del Target Group</h4>
+                <ol class="list-decimal list-outside ml-4 space-y-2 text-gray-600 mb-6">
+                    <li>Vai su <strong>EC2 &gt; Target Groups &gt; Create target group</strong>.</li>
+                    <li>Scegli <strong>Instances</strong>. Nome: <code class="bg-gray-100 px-1 rounded text-sm">Lab-TG</code>. Protocollo: HTTP (80). Seleziona la <code class="bg-gray-100 px-1 rounded text-sm">Lab-VPC</code>.</li>
+                    <li>Clicca <em>Next</em>. Seleziona l'istanza <code class="bg-gray-100 px-1 rounded text-sm">Lab-WebServer</code> creata in precedenza, clicca <strong>Include as pending below</strong> e poi su <em>Create target group</em>.</li>
+                </ol>
+
+                <h4 class="font-semibold text-gray-800 mb-3 border-t pt-6">B. Creazione del Load Balancer</h4>
+                <ol class="list-decimal list-outside ml-4 space-y-2 text-gray-600">
+                    <li>Vai su <strong>EC2 &gt; Load Balancers &gt; Create load balancer</strong> e scegli <strong>Application Load Balancer</strong>.</li>
+                    <li>Nome: <code class="bg-gray-100 px-1 rounded text-sm">Lab-ALB</code>. Scheme: <strong>Internet-facing</strong>.</li>
+                    <li><strong>Network mapping:</strong> Seleziona la <code class="bg-gray-100 px-1 rounded text-sm">Lab-VPC</code>. Spunta le due Availability Zones contenenti le tue <strong>Front-End Subnets</strong>.</li>
+                    <li><strong>Security groups:</strong> Rimuovi quello di default e seleziona <code class="bg-gray-100 px-1 rounded text-sm">SG-FrontEnd-ALB</code>.</li>
+                    <li><strong>Listeners and routing:</strong> Per la porta HTTP:80, imposta l'azione di default su <em>Forward to</em> <code class="bg-gray-100 px-1 rounded text-sm">Lab-TG</code>.</li>
+                    <li>Clicca su <strong>Create load balancer</strong>.</li>
+                </ol>
+            </div>
+        </section>
+
+        <!-- Step 5 -->
+        <section class="bg-brand-50 rounded-xl border border-brand-200 p-8 text-center">
+            <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-brand-100 text-brand-600 mb-4">
+                <i class="fas fa-check-double text-2xl"></i>
+            </div>
+            <h3 class="text-2xl font-bold text-gray-900 mb-3">Verifica e Test</h3>
+            <p class="text-gray-600 max-w-2xl mx-auto mb-6">
+                Il provisioning del Load Balancer richiederà circa 2-3 minuti. Attendi che lo stato passi da <em>Provisioning</em> ad <strong>Active</strong>.
+            </p>
+            
+            <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200 max-w-xl mx-auto text-left">
+                <ul class="space-y-4 text-gray-700">
+                    <li class="flex items-start">
+                        <i class="fas fa-chevron-right text-brand-500 mt-1 mr-3 text-sm"></i>
+                        <span>Seleziona il tuo <strong>Lab-ALB</strong> dalla lista dei Load Balancers.</span>
+                    </li>
+                    <li class="flex items-start">
+                        <i class="fas fa-chevron-right text-brand-500 mt-1 mr-3 text-sm"></i>
+                        <span>Nella scheda <em>Details</em>, individua e copia il <strong>DNS name</strong> (es. <code class="text-sm bg-gray-100 px-1 rounded">Lab-ALB-1234.eu-south-1.elb.amazonaws.com</code>).</span>
+                    </li>
+                    <li class="flex items-start">
+                        <i class="fas fa-chevron-right text-brand-500 mt-1 mr-3 text-sm"></i>
+                        <span>Incolla l'URL in una nuova scheda del browser. Visualizzerai la pagina web generata dall'EC2 con il link diretto a <strong>www.marblemind.eu</strong>.</span>
+                    </li>
+                </ul>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-gray-900 text-gray-400 py-8 border-t border-gray-800">
+        <div class="max-w-5xl mx-auto px-6 flex flex-col md:flex-row justify-between items-center">
+            <div class="mb-4 md:mb-0">
+                <p class="text-sm">&copy; 2023 AWS Lab Guide. Realizzato per scopi didattici e formativi.</p>
+            </div>
+            <div class="text-sm">
+                Progettato con <i class="fas fa-heart text-red-500 mx-1"></i> per <a href="https://www.marblemind.eu" class="text-white hover:text-brand-400 transition-colors font-medium">MarbleMind.eu</a>
+            </div>
+        </div>
+    </footer>
+
+</body>
+</html>
