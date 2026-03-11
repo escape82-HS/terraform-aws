@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Laboratorio: Deployment Infrastruttura AWS con Terraform</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        pre { background-color: #1e293b; color: #f8fafc; padding: 1rem; border-radius: 0.5rem; overflow-x: auto; }
+        code { font-family: 'Courier New', Courier, monospace; font-size: 0.9rem; }
+        .step-header { color: #2563eb; font-weight: bold; font-size: 1.25rem; margin-top: 2rem; margin-bottom: 1rem; border-bottom: 2px solid #e5e7eb; padding-bottom: 0.5rem; }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800 line-height-relaxed">
+
+    <div class="max-w-4xl mx-auto bg-white shadow-lg rounded-lg my-10 p-8">
+        
+        <header class="text-center mb-10">
+            <h1 class="text-3xl font-extrabold text-gray-900 mb-2">Laboratorio AWS & Terraform</h1>
+            <p class="text-lg text-gray-600">Deployment di un Application Load Balancer e Istanze EC2 in Private Subnet</p>
+        </header>
+
+        <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-8 rounded-r">
+            <div class="flex">
+                <div class="flex-shrink-0">
+                    <svg class="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+                    </svg>
+                </div>
+                <div class="ml-3">
+                    <h3 class="text-sm font-medium text-yellow-800">Attenzione: Adattamento degli Script</h3>
+                    <div class="mt-2 text-sm text-yellow-700">
+                        <p>Gli script Terraform presentati in questa guida <strong>devono essere adattati al tuo caso specifico</strong> e al tuo account AWS (es. ID della VPC, nomi delle chiavi SSH, region, ecc.). Lo studente deve utilizzare questa procedura come riferimento didattico, ma è tenuto ad elaborarla e modificarla in base alla propria configurazione di rete e ai requisiti di sicurezza.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <section class="mb-8">
+            <h2 class="text-2xl font-bold text-gray-800 mb-4">Obiettivo del Laboratorio</h2>
+            <p class="mb-4">In questo laboratorio imparerai a scrivere codice Terraform per automatizzare il provisioning della seguente architettura AWS:</p>
+            <ul class="list-disc list-inside space-y-2 ml-4 text-gray-700">
+                <li>Acquisizione dinamica dei parametri di una VPC esistente e delle sue Subnet tramite <em>Data Sources</em>.</li>
+                <li>Creazione di 2 istanze EC2 Amazon Linux in due <strong>Subnet Private</strong> distinte.</li>
+                <li>Configurazione automatica delle EC2 tramite <em>User Data</em> per installare Apache (httpd) e servire una pagina HTML di test.</li>
+                <li>Creazione di un <strong>Application Load Balancer (ALB)</strong> (in subnet pubbliche) con un Target Group.</li>
+                <li>Registrazione delle due istanze EC2 nel Target Group dell'ALB.</li>
+            </ul>
+        </section>
+
+        <section>
+            <h2 class="step-header">Step 1: Configurazione del Provider e Data Sources</h2>
+            <p class="mb-4">Iniziamo definendo il provider AWS e utilizzando i blocco <code>data</code> per recuperare le informazioni sulla VPC e sulle Subnet (pubbliche per l'ALB, private per le EC2) già esistenti nel tuo account.</p>
+<pre><code>provider "aws" {
+  region = "eu-west-1" # Modifica con la tua region
+}
+
+# Recupera la VPC esistente (sostituisci l'ID o usa un filtro per tag)
+data "aws_vpc" "main" {
+  id = "vpc-0123456789abcdef0" # INSERISCI IL TUO VPC ID
+}
+
+# Recupera due subnet private per le EC2
+data "aws_subnets" "private" {
+  filter {
+    name   = "vpc-id"
+    values = [data.aws_vpc.main.id]
+  }
+  filter {
+    name   = "tag:Tier"
+    values = ["Private"] # Assicurati che le tue subnet abbiano questo tag
+  }
+}
+
+# Recupera due subnet pubbliche per l'ALB
+data "aws_subnets" "public" {
+  filter {
+    name   = "vpc-id"
+    values = [data.aws_vpc.main.id]
+  }
+  filter {
+    name   = "tag:Tier"
+    values = ["Public"]
+  }
+}</code></pre>
+        </section>
+
+        <section>
+            <h2 class="step-header">Step 2: Creazione dei Security Group</h2>
+            <p class="mb-4">Creiamo due Security Group: uno per l'ALB (che accetta traffico HTTP da internet) e uno per le EC2 (che accetta traffico HTTP <strong>solo</strong> dall'ALB).</p>
+<pre><code># Security Group per l'ALB
+resource "aws_security_group" "alb_sg" {
+  name        = "alb-security-group"
+  description = "Consenti traffico HTTP in ingresso"
+  vpc_id      = data.aws_vpc.main.id
+
+  ingress {
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+
+# Security Group per le EC2
+resource "aws_security_group" "ec2_sg" {
+  name        = "ec2-security-group"
+  description = "Consenti traffico HTTP dall'ALB"
+  vpc_id      = data.aws_vpc.main.id
+
+  ingress {
+    from_port       = 80
+    to_port         = 80
+    protocol        = "tcp"
+    security_groups = [aws_security_group.alb_sg.id]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}</code></pre>
+        </section>
+
+        <section>
+            <h2 class="step-header">Step 3: Deployment delle Istanze EC2</h2>
+            <p class="mb-4">Ora deployamo le due istanze EC2 nelle subnet private. Utilizziamo lo script <code>user_data</code> per installare Apache e creare una pagina HTML di test.</p>
+<pre><code># Recupera l'AMI di Amazon Linux 2023
+data "aws_ami" "amazon_linux" {
+  most_recent = true
+  owners      = ["amazon"]
+
+  filter {
+    name   = "name"
+    values = ["al2023-ami-2023.*-x86_64"]
+  }
+}
+
+# Creazione delle 2 Istanze EC2
+resource "aws_instance" "web_servers" {
+  count         = 2
+  ami           = data.aws_ami.amazon_linux.id
+  instance_type = "t2.micro"
+  
+  # Assegna ogni istanza a una subnet privata diversa
+  subnet_id              = data.aws_subnets.private.ids[count.index]
+  vpc_security_group_ids = [aws_security_group.ec2_sg.id]
+
+  user_data = <<-EOF
+              #!/bin/bash
+              yum update -y
+              yum install -y httpd
+              systemctl start httpd
+              systemctl enable httpd
+              echo "<h1>Benvenuto sul Web Server ${count.index + 1}</h1><p>Deployato con Terraform!</p>" > /var/www/html/index.html
+              EOF
+
+  tags = {
+    Name = "WebServer-${count.index + 1}"
+  }
+}</code></pre>
+        </section>
+
+        <section>
+            <h2 class="step-header">Step 4: Application Load Balancer e Target Group</h2>
+            <p class="mb-4">Configuriamo l'ALB nelle subnet pubbliche, creiamo il Target Group e impostiamo il Listener sulla porta 80.</p>
+<pre><code># Target Group
+resource "aws_lb_target_group" "web_tg" {
+  name     = "web-target-group"
+  port     = 80
+  protocol = "HTTP"
+  vpc_id   = data.aws_vpc.main.id
+
+  health_check {
+    path                = "/"
+    protocol            = "HTTP"
+    matcher             = "200"
+    interval            = 30
+    timeout             = 5
+    healthy_threshold   = 2
+    unhealthy_threshold = 2
+  }
+}
+
+# Application Load Balancer
+resource "aws_lb" "web_alb" {
+  name               = "web-alb"
+  internal           = false
+  load_balancer_type = "application"
+  security_groups    = [aws_security_group.alb_sg.id]
+  subnets            = data.aws_subnets.public.ids
+}
+
+# Listener dell'ALB
+resource "aws_lb_listener" "web_listener" {
+  load_balancer_arn = aws_lb.web_alb.arn
+  port              = "80"
+  protocol          = "HTTP"
+
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.web_tg.arn
+  }
+}</code></pre>
+        </section>
+
+        <section>
+            <h2 class="step-header">Step 5: Registrazione delle EC2 nel Target Group</h2>
+            <p class="mb-4">Infine, associamo le due istanze EC2 appena create al Target Group dell'ALB.</p>
+<pre><code>resource "aws_lb_target_group_attachment" "web_tg_attachment" {
+  count            = 2
+  target_group_arn = aws_lb_target_group.web_tg.arn
+  target_id        = aws_instance.web_servers[count.index].id
+  port             = 80
+}
+
+# Output per ottenere il DNS dell'ALB a fine deployment
+output "alb_dns_name" {
+  description = "Il DNS name dell'Application Load Balancer"
+  value       = aws_lb.web_alb.dns_name
+}</code></pre>
+        </section>
+
+        <section>
+            <h2 class="step-header">Step 6: Esecuzione del Deployment</h2>
+            <p class="mb-4">Una volta salvato il codice in un file (es. <code>main.tf</code>), apri il terminale e procedi con i comandi standard di Terraform:</p>
+            <ol class="list-decimal list-inside space-y-3 text-gray-700 ml-4">
+                <li><strong>Inizializza la directory:</strong> <code>terraform init</code> (scarica i provider necessari).</li>
+                <li><strong>Controlla il piano di esecuzione:</strong> <code>terraform plan</code> (verifica quali risorse verranno create).</li>
+                <li><strong>Applica le modifiche:</strong> <code>terraform apply</code> (digita <em>yes</em> quando richiesto per confermare il deployment).</li>
+                <li><strong>Test:</strong> Copia l'output <code>alb_dns_name</code>, incollalo nel tuo browser e aggiorna la pagina più volte per vedere il traffico bilanciato tra il Web Server 1 e il Web Server 2.</li>
+                <li><strong>Pulizia:</strong> Al termine del laboratorio, non dimenticare di eseguire <code>terraform destroy</code> per rimuovere le risorse ed evitare costi indesiderati.</li>
+            </ol>
+        </section>
+
+        <footer class="mt-12 pt-6 border-t border-gray-200 text-center text-gray-500 text-sm">
+            <p>Laboratorio realizzato per scopi didattici.</p>
+            <p class="mt-2">Per ulteriori risorse, guide e approfondimenti sul mondo Cloud e DevOps, visita <a href="http://www.marblemind.eu" target="_blank" class="text-blue-600 hover:underline font-semibold">www.marblemind.eu</a>.</p>
+        </footer>
+
+    </div>
+</body>
+</html>
