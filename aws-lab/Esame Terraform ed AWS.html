@@ -1,0 +1,836 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Esame di Verifica: Terraform ed AWS</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background-color: #f4f7f6;
+            margin: 0;
+            padding: 0;
+        }
+        header {
+            background: #232f3e;
+            color: #fff;
+            padding: 20px 0;
+            text-align: center;
+            border-bottom: 4px solid #ff9900;
+        }
+        header a {
+            color: #ff9900;
+            text-decoration: none;
+            font-weight: bold;
+        }
+        .container {
+            width: 80%;
+            max-width: 900px;
+            margin: 30px auto;
+            background: #fff;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        h1 {
+            margin-top: 0;
+        }
+        .question-block {
+            margin-bottom: 25px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #eee;
+        }
+        .question-title {
+            font-weight: bold;
+            font-size: 1.1em;
+            margin-bottom: 10px;
+        }
+        .options {
+            list-style: none;
+            padding: 0;
+        }
+        .options li {
+            margin-bottom: 8px;
+        }
+        label {
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+        }
+        input[type="radio"] {
+            margin-right: 10px;
+        }
+        .btn-submit {
+            display: block;
+            width: 100%;
+            padding: 15px;
+            background: #ff9900;
+            color: #232f3e;
+            border: none;
+            font-size: 1.2em;
+            font-weight: bold;
+            cursor: pointer;
+            border-radius: 5px;
+            transition: background 0.3s;
+        }
+        .btn-submit:hover {
+            background: #e38800;
+        }
+        .explanation {
+            display: none;
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 4px;
+            font-size: 0.95em;
+        }
+        .correct-ans {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .wrong-ans {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        #results {
+            display: none;
+            text-align: center;
+            font-size: 1.5em;
+            font-weight: bold;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: #e2e3e5;
+            border-radius: 5px;
+        }
+        footer {
+            text-align: center;
+            padding: 20px;
+            background: #232f3e;
+            color: #fff;
+            margin-top: 40px;
+        }
+        footer a {
+            color: #ff9900;
+            text-decoration: none;
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>Esame di Verifica: Terraform ed AWS</h1>
+    <p>Preparato per il corso avanzato | Powered by <a href="https://www.marblemind.eu" target="_blank">www.marblemind.eu</a></p>
+</header>
+
+<div class="container">
+    <div id="results"></div>
+    <form id="quiz-form">
+        <div id="quiz-container"></div>
+        <button type="button" class="btn-submit" onclick="submitQuiz()">Calcola Punteggio</button>
+    </form>
+</div>
+
+<footer>
+    <p>&copy; 2026 Esame di Verifica Terraform ed AWS. Visita <a href="https://www.marblemind.eu" target="_blank">www.marblemind.eu</a> per ulteriori risorse.</p>
+</footer>
+
+<script>
+    const questions = [
+        // TERRAFORM (1-30)
+        {
+            q: "Cos'è l'Infrastructure as Code (IaC)?",
+            options: [
+                "Un processo manuale per configurare server fisici",
+                "L'approccio che permette di gestire l'infrastruttura IT tramite file di configurazione",
+                "Un linguaggio di programmazione per creare applicazioni web",
+                "Un database relazionale gestito"
+            ],
+            answer: 1,
+            explanation: "L'IaC trasforma l'infrastruttura in codice, permettendo di versionarla, testarla e automatizzarne il deployment."
+        },
+        {
+            q: "Quale approccio utilizza Terraform?",
+            options: [
+                "Imperativo",
+                "Dichiarativo",
+                "Procedurale",
+                "Orientato agli oggetti"
+            ],
+            answer: 1,
+            explanation: "Terraform usa un approccio dichiarativo: si descrive lo stato desiderato e il tool calcola i passi necessari per realizzarlo."
+        },
+        {
+            q: "Quale comando inizializza una directory di lavoro Terraform scaricando i provider necessari?",
+            options: ["terraform start", "terraform init", "terraform plan", "terraform apply"],
+            answer: 1,
+            explanation: "Il comando 'terraform init' inizializza la directory, scarica i plugin dei provider e configura l'eventuale backend."
+        },
+        {
+            q: "Quale comando permette di visualizzare in anteprima le modifiche che verranno apportate all'infrastruttura?",
+            options: ["terraform show", "terraform preview", "terraform plan", "terraform validate"],
+            answer: 2,
+            explanation: "'terraform plan' crea un execution plan mostrando cosa verrà creato, modificato o distrutto in modalità dry-run."
+        },
+        {
+            q: "Quale comando applica effettivamente le modifiche all'infrastruttura reale?",
+            options: ["terraform push", "terraform apply", "terraform commit", "terraform deploy"],
+            answer: 1,
+            explanation: "'terraform apply' esegue le modifiche calcolate dal plan sull'infrastruttura reale."
+        },
+        {
+            q: "Quale comando elimina tutte le risorse gestite dal progetto Terraform?",
+            options: ["terraform delete", "terraform remove", "terraform destroy", "terraform clean"],
+            answer: 2,
+            explanation: "'terraform destroy' legge lo state e rimuove tutte le risorse gestite dal cloud."
+        },
+        {
+            q: "Qual è il nome di default del file di stato locale di Terraform?",
+            options: ["terraform.state", "state.tf", "terraform.tfstate", "main.tfstate"],
+            answer: 2,
+            explanation: "Il file si chiama 'terraform.tfstate' ed è un file JSON che mappa le risorse del codice a quelle reali."
+        },
+        {
+            q: "Perché è sconsigliato committare il file .tfstate su Git?",
+            options: [
+                "Perché è troppo pesante",
+                "Perché causa errori di sintassi",
+                "Perché contiene dati sensibili (password, chiavi) in chiaro",
+                "Perché Git non supporta file JSON"
+            ],
+            answer: 2,
+            explanation: "Lo state file contiene tutti gli attributi delle risorse, inclusi secret e password in plain text."
+        },
+        {
+            q: "Qual è la best practice per gestire lo state in un team?",
+            options: [
+                "Inviarlo via email",
+                "Usare un Remote Backend (es. S3 + DynamoDB)",
+                "Caricarlo su un branch Git separato",
+                "Salvarlo su una chiavetta USB condivisa"
+            ],
+            answer: 1,
+            explanation: "Il Remote Backend permette la collaborazione, il backup automatico e il locking dello stato."
+        },
+        {
+            q: "A cosa serve Amazon DynamoDB quando si usa S3 come backend Terraform?",
+            options: [
+                "A salvare i log di esecuzione",
+                "A criptare il file di stato",
+                "A gestire lo State Locking per prevenire esecuzioni concorrenti",
+                "A fare il backup del codice HCL"
+            ],
+            answer: 2,
+            explanation: "DynamoDB viene usato per acquisire un lock sullo state, evitando che due sviluppatori applichino modifiche contemporaneamente."
+        },
+        {
+            q: "Quale blocco HCL si usa per configurare le credenziali e la regione di AWS?",
+            options: ["resource", "provider", "variable", "backend"],
+            answer: 1,
+            explanation: "Il blocco 'provider' configura il plugin necessario per interagire con le API del cloud provider (es. AWS)."
+        },
+        {
+            q: "Quale blocco si usa per creare un'istanza EC2 o un bucket S3?",
+            options: ["provider", "data", "resource", "output"],
+            answer: 2,
+            explanation: "Il blocco 'resource' definisce un componente infrastrutturale da creare."
+        },
+        {
+            q: "Come si definisce una variabile in Terraform?",
+            options: ["var \"nome\" {}", "variable \"nome\" {}", "input \"nome\" {}", "parameter \"nome\" {}"],
+            answer: 1,
+            explanation: "Si utilizza il blocco 'variable' seguito dal nome della variabile."
+        },
+        {
+            q: "Quale comando formatta automaticamente il codice HCL secondo gli standard?",
+            options: ["terraform lint", "terraform style", "terraform format", "terraform fmt"],
+            answer: 3,
+            explanation: "'terraform fmt' riscrive i file di configurazione in un formato canonico."
+        },
+        {
+            q: "Quale comando verifica la correttezza sintattica dei file .tf senza accedere al cloud?",
+            options: ["terraform check", "terraform validate", "terraform verify", "terraform test"],
+            answer: 1,
+            explanation: "'terraform validate' verifica la sintassi e i riferimenti interni senza bisogno di credenziali cloud."
+        },
+        {
+            q: "A cosa serve il file terraform.tfvars?",
+            options: [
+                "A definire la versione di Terraform",
+                "A salvare i log di errore",
+                "A fornire i valori specifici per le variabili definite nel codice",
+                "A nascondere il codice HCL"
+            ],
+            answer: 2,
+            explanation: "I file .tfvars contengono le assegnazioni dei valori alle variabili, utili per separare i dati per ambiente (dev, prod)."
+        },
+        {
+            q: "Qual è la sintassi corretta per interpolare una variabile in una stringa HCL?",
+            options: ["{{var.nome}}", "${var.nome}", "$var.nome", "<var.nome>"],
+            answer: 1,
+            explanation: "In HCL si usa la sintassi ${...} per l'interpolazione di variabili o attributi."
+        },
+        {
+            q: "A cosa serve il blocco 'data' (Data Source)?",
+            options: [
+                "A creare un nuovo database",
+                "A leggere informazioni su risorse già esistenti nel cloud",
+                "A esportare i dati in formato JSON",
+                "A definire le variabili d'ambiente"
+            ],
+            answer: 1,
+            explanation: "I data sources permettono a Terraform di interrogare il cloud per ottenere dati su risorse create esternamente (es. l'AMI più recente)."
+        },
+        {
+            q: "Come gestisce Terraform le dipendenze tra le risorse?",
+            options: [
+                "Devono essere sempre specificate manualmente",
+                "In ordine alfabetico",
+                "Automaticamente, analizzando i riferimenti tra gli attributi delle risorse",
+                "In base all'ordine in cui sono scritte nel file"
+            ],
+            answer: 2,
+            explanation: "Terraform crea un grafo delle dipendenze implicite. Se la risorsa A referenzia l'ID della risorsa B, B verrà creata prima."
+        },
+        {
+            q: "Quale argomento si usa per forzare esplicitamente una dipendenza quando non c'è un riferimento diretto?",
+            options: ["require", "needs", "depends_on", "wait_for"],
+            answer: 2,
+            explanation: "L'argomento 'depends_on' accetta una lista di risorse che devono essere create prima di quella corrente."
+        },
+        {
+            q: "Cos'è un modulo in Terraform?",
+            options: [
+                "Un plugin per un nuovo cloud provider",
+                "Un contenitore di risorse raggruppate per essere riutilizzate",
+                "Un file di log",
+                "Una licenza Enterprise"
+            ],
+            answer: 1,
+            explanation: "I moduli permettono di pacchettizzare e riutilizzare blocchi di codice infrastrutturale (es. un modulo per creare una VPC standard)."
+        },
+        {
+            q: "Quale comando si usa per importare una risorsa creata manualmente nello state di Terraform?",
+            options: ["terraform pull", "terraform import", "terraform sync", "terraform add"],
+            answer: 1,
+            explanation: "'terraform import' associa una risorsa cloud esistente a un blocco resource nel codice Terraform."
+        },
+        {
+            q: "Cosa fa il comando 'terraform state rm'?",
+            options: [
+                "Distrugge la risorsa su AWS",
+                "Rimuove la risorsa dal tracciamento dello state senza distruggerla su AWS",
+                "Elimina il file terraform.tfstate",
+                "Formatta lo state file"
+            ],
+            answer: 1,
+            explanation: "Rimuove la risorsa dallo state file. La risorsa continuerà ad esistere nel cloud ma non sarà più gestita da Terraform."
+        },
+        {
+            q: "Cos'è il 'Drift' in Terraform?",
+            options: [
+                "Un errore di sintassi",
+                "La differenza tra lo stato definito nel codice/state e lo stato reale nel cloud",
+                "Un comando per spostare risorse",
+                "Un tipo di variabile"
+            ],
+            answer: 1,
+            explanation: "Il drift si verifica quando qualcuno modifica manualmente l'infrastruttura (es. da console AWS), disallineandola dal codice."
+        },
+        {
+            q: "Quale flag del comando apply forza la ricreazione di una risorsa specifica (sostituendo il deprecato comando taint)?",
+            options: ["-recreate", "-force", "-replace", "-new"],
+            answer: 2,
+            explanation: "Il flag '-replace=\"indirizzo_risorsa\"' indica a Terraform di distruggere e ricreare la risorsa specificata."
+        },
+        {
+            q: "Quali strumenti vengono comunemente usati per l'analisi statica di sicurezza (Security Scanning) del codice Terraform?",
+            options: ["tfsec e checkov", "tflint e fmt", "Sentinel e OPA", "CloudWatch e CloudTrail"],
+            answer: 0,
+            explanation: "tfsec e checkov analizzano il codice HCL alla ricerca di vulnerabilità (es. porte aperte, bucket pubblici) prima del deployment."
+        },
+        {
+            q: "Cos'è HashiCorp Sentinel?",
+            options: [
+                "Un load balancer",
+                "Un database NoSQL",
+                "Un framework di Policy-as-Code per applicare regole di governance",
+                "Un provider per Azure"
+            ],
+            answer: 2,
+            explanation: "Sentinel è un policy engine integrato in Terraform Cloud/Enterprise per bloccare deployment non conformi alle policy aziendali."
+        },
+        {
+            q: "Quale blocco si usa per esportare valori (es. l'IP di un'istanza) al termine dell'esecuzione?",
+            options: ["export", "return", "output", "print"],
+            answer: 3,
+            explanation: "Il blocco 'output' definisce i valori che verranno mostrati a schermo dopo l'apply o passati ad altri moduli."
+        },
+        {
+            q: "Se una variabile è definita sia come variabile d'ambiente (TF_VAR_x) che in un file .tfvars, quale valore vince?",
+            options: [
+                "La variabile d'ambiente",
+                "Il valore nel file .tfvars",
+                "Il valore di default",
+                "Terraform restituisce errore"
+            ],
+            answer: 1,
+            explanation: "I file .tfvars hanno una precedenza maggiore rispetto alle variabili d'ambiente nella gerarchia di Terraform."
+        },
+        {
+            q: "Quale attributo si usa nel blocco output per nascondere valori sensibili (es. password) dai log della console?",
+            options: ["hidden = true", "secret = true", "mask = true", "sensitive = true"],
+            answer: 3,
+            explanation: "L'attributo 'sensitive = true' impedisce a Terraform di stampare il valore in chiaro nell'output della CLI."
+        },
+
+        // AWS VPC & SG (31-40)
+        {
+            q: "Cos'è un Amazon VPC (Virtual Private Cloud)?",
+            options: [
+                "Un server fisico dedicato",
+                "Una rete virtuale isolata logicamente nel cloud AWS",
+                "Un servizio di storage di oggetti",
+                "Un database relazionale"
+            ],
+            answer: 1,
+            explanation: "Una VPC ti permette di lanciare risorse AWS in una rete virtuale definita da te, offrendo controllo completo sull'ambiente di rete."
+        },
+        {
+            q: "Cosa differenzia una Subnet Pubblica da una Subnet Privata?",
+            options: [
+                "La subnet pubblica usa indirizzi IPv6",
+                "La subnet pubblica ha una route verso un Internet Gateway (IGW)",
+                "La subnet privata è crittografata",
+                "La subnet privata non usa Security Group"
+            ],
+            answer: 1,
+            explanation: "Una subnet è considerata pubblica se la sua Route Table instrada il traffico verso Internet tramite un Internet Gateway."
+        },
+        {
+            q: "A cosa serve un NAT Gateway?",
+            options: [
+                "A bilanciare il traffico tra istanze",
+                "A connettere la VPC alla rete aziendale on-premise",
+                "A permettere alle istanze in una subnet privata di accedere a Internet",
+                "A bloccare gli attacchi DDoS"
+            ],
+            answer: 2,
+            explanation: "Il NAT Gateway consente alle risorse in subnet private di scaricare aggiornamenti da Internet, impedendo però connessioni in ingresso da Internet."
+        },
+        {
+            q: "Cos'è un Security Group in AWS?",
+            options: [
+                "Un firewall virtuale a livello di istanza che controlla il traffico in ingresso e in uscita",
+                "Un gruppo di utenti IAM",
+                "Un firewall a livello di subnet",
+                "Un sistema di crittografia per S3"
+            ],
+            answer: 0,
+            explanation: "I Security Group agiscono come firewall stateful associati direttamente alle interfacce di rete (ENI) delle istanze."
+        },
+        {
+            q: "I Security Group sono Stateful o Stateless?",
+            options: [
+                "Stateless: bisogna definire regole sia in ingresso che in uscita per la stessa connessione",
+                "Stateful: il traffico di ritorno per una richiesta consentita è automaticamente permesso",
+                "Dipende dalla configurazione",
+                "Nessuna delle precedenti"
+            ],
+            answer: 1,
+            explanation: "I Security Group sono Stateful. Se permetti una richiesta in ingresso sulla porta 80, la risposta in uscita è automaticamente consentita."
+        },
+        {
+            q: "Quale componente funge da firewall Stateless a livello di Subnet?",
+            options: ["Security Group", "WAF", "Network ACL (NACL)", "Route Table"],
+            answer: 2,
+            explanation: "Le NACL operano a livello di subnet e sono stateless, richiedendo regole esplicite sia per l'ingresso che per l'uscita."
+        },
+        {
+            q: "Qual è la dimensione massima consentita per il blocco CIDR IPv4 primario di una VPC?",
+            options: ["/8", "/16", "/24", "/32"],
+            answer: 1,
+            explanation: "La dimensione massima per un blocco CIDR di una VPC è /16 (65.536 indirizzi IP)."
+        },
+        {
+            q: "È possibile associare più Security Group a una singola istanza EC2?",
+            options: [
+                "No, limite di 1",
+                "Sì, fino a 5 per interfaccia di rete (default)",
+                "Sì, ma solo se sono nella stessa Availability Zone",
+                "No, i Security Group si associano solo alle Subnet"
+            ],
+            answer: 1,
+            explanation: "Puoi assegnare più Security Group a un'istanza; le regole di tutti i gruppi associati vengono valutate insieme (approccio permissivo)."
+        },
+        {
+            q: "Qual è il comportamento di default di un Security Group appena creato?",
+            options: [
+                "Permette tutto in ingresso e tutto in uscita",
+                "Nega tutto in ingresso e permette tutto in uscita",
+                "Permette tutto in ingresso e nega tutto in uscita",
+                "Nega tutto in ingresso e nega tutto in uscita"
+            ],
+            answer: 1,
+            explanation: "Di default, un nuovo SG non ha regole di Inbound (nega tutto) e ha una regola Outbound che permette tutto il traffico."
+        },
+        {
+            q: "In Terraform, quale risorsa si usa per creare una regola all'interno di un Security Group?",
+            options: ["aws_security_group_rule", "aws_firewall_rule", "aws_vpc_rule", "aws_nacl_rule"],
+            answer: 0,
+            explanation: "La risorsa 'aws_security_group_rule' permette di definire regole di ingresso o uscita separatamente dal blocco del Security Group."
+        },
+
+        // AWS EC2 & AZ (41-50)
+        {
+            q: "Cos'è Amazon EC2?",
+            options: [
+                "Un servizio di database",
+                "Un servizio che fornisce capacità di calcolo sicura e ridimensionabile nel cloud",
+                "Un bilanciatore di carico",
+                "Un servizio di DNS"
+            ],
+            answer: 1,
+            explanation: "Amazon Elastic Compute Cloud (EC2) fornisce server virtuali (istanze) per eseguire applicazioni."
+        },
+        {
+            q: "Cos'è un'AMI in AWS?",
+            options: [
+                "Amazon Managed Interface",
+                "Amazon Machine Image: un template preconfigurato per lanciare un'istanza",
+                "Advanced Monitoring Integration",
+                "Application Memory Interface"
+            ],
+            answer: 1,
+            explanation: "Un'AMI contiene il sistema operativo, le configurazioni e i software necessari per avviare un'istanza EC2."
+        },
+        {
+            q: "Quale modello di pricing EC2 è ideale per carichi di lavoro flessibili e tolleranti alle interruzioni, offrendo il massimo risparmio?",
+            options: ["On-Demand", "Reserved Instances", "Dedicated Hosts", "Spot Instances"],
+            answer: 3,
+            explanation: "Le Spot Instances usano la capacità inutilizzata di AWS a prezzi fortemente scontati, ma possono essere interrotte da AWS con breve preavviso."
+        },
+        {
+            q: "Cos'è una Availability Zone (AZ)?",
+            options: [
+                "Un'intera area geografica globale",
+                "Uno o più data center discreti con alimentazione e rete ridondanti all'interno di una Region",
+                "Un server rack",
+                "Una rete CDN"
+            ],
+            answer: 1,
+            explanation: "Le AZ sono isolate tra loro per prevenire guasti a cascata, ma connesse tramite reti a bassa latenza."
+        },
+        {
+            q: "Qual è il vantaggio principale di distribuire istanze EC2 su più Availability Zones?",
+            options: [
+                "Riduce i costi",
+                "Migliora l'Alta Affidabilità (High Availability) e la Fault Tolerance",
+                "Aumenta lo spazio di storage",
+                "Semplifica la fatturazione"
+            ],
+            answer: 1,
+            explanation: "Se un'AZ subisce un disastro, le istanze nelle altre AZ continuano a funzionare, garantendo la disponibilità dell'applicazione."
+        },
+        {
+            q: "Cos'è Amazon EBS?",
+            options: [
+                "Elastic Block Store: volumi di storage a blocchi persistenti per EC2",
+                "Elastic Backup Service",
+                "Un servizio di object storage",
+                "Un database in-memory"
+            ],
+            answer: 0,
+            explanation: "EBS fornisce dischi virtuali persistenti che possono essere collegati alle istanze EC2."
+        },
+        {
+            q: "Cosa succede ai dati salvati su un volume 'Instance Store' quando l'istanza EC2 viene fermata (Stopped)?",
+            options: [
+                "Vengono salvati su S3",
+                "Rimangono intatti",
+                "Vengono persi definitivamente",
+                "Vengono compressi"
+            ],
+            answer: 2,
+            explanation: "L'Instance Store è storage effimero collegato fisicamente all'host. Se l'istanza viene fermata, i dati vengono persi."
+        },
+        {
+            q: "A cosa serve il campo 'User Data' durante il lancio di un'istanza EC2?",
+            options: [
+                "A definire la password di root",
+                "A passare script che verranno eseguiti automaticamente al primo avvio dell'istanza",
+                "A salvare i log utente",
+                "A configurare il Security Group"
+            ],
+            answer: 1,
+            explanation: "User Data è comunemente usato per compiti di bootstrap, come installare software o scaricare configurazioni all'avvio."
+        },
+        {
+            q: "Quale servizio AWS aggiunge o rimuove automaticamente istanze EC2 in base alla domanda?",
+            options: ["Elastic Load Balancer", "Auto Scaling Group", "AWS Lambda", "Amazon CloudFront"],
+            answer: 1,
+            explanation: "L'Auto Scaling Group assicura di avere il numero corretto di istanze per gestire il carico, scalando in o out."
+        },
+        {
+            q: "Cos'è un Elastic IP?",
+            options: [
+                "Un indirizzo IPv6 dinamico",
+                "Un indirizzo IPv4 pubblico statico progettato per il cloud computing dinamico",
+                "Un IP privato per il database",
+                "Un MAC address virtuale"
+            ],
+            answer: 1,
+            explanation: "Un Elastic IP rimane associato al tuo account AWS e può essere riassegnato rapidamente a un'altra istanza in caso di guasto."
+        },
+
+        // AWS ALB & NLB (51-60)
+        {
+            q: "A quale livello del modello OSI opera l'Application Load Balancer (ALB)?",
+            options: ["Livello 3 (Rete)", "Livello 4 (Trasporto)", "Livello 7 (Applicazione)", "Livello 2 (Datalink)"],
+            answer: 2,
+            explanation: "L'ALB opera a livello 7, gestendo traffico HTTP e HTTPS."
+        },
+        {
+            q: "A quale livello del modello OSI opera il Network Load Balancer (NLB)?",
+            options: ["Livello 3", "Livello 4 (Trasporto)", "Livello 7", "Livello 1"],
+            answer: 1,
+            explanation: "L'NLB opera a livello 4, gestendo traffico TCP, UDP e TLS con latenza ultra-bassa."
+        },
+        {
+            q: "Quale Load Balancer supporta il routing basato sul percorso (Path-based routing) e sull'host (Host-based routing)?",
+            options: ["Network Load Balancer", "Classic Load Balancer", "Application Load Balancer", "Gateway Load Balancer"],
+            answer: 2,
+            explanation: "Essendo un LB di livello 7, l'ALB può ispezionare l'URL (es. /api o /images) e instradare il traffico di conseguenza."
+        },
+        {
+            q: "Quale Load Balancer è progettato per gestire milioni di richieste al secondo mantenendo latenze estremamente basse?",
+            options: ["Application Load Balancer", "Network Load Balancer", "Classic Load Balancer", "Route 53"],
+            answer: 1,
+            explanation: "L'NLB è ottimizzato per performance estreme e traffico volatile a livello di rete."
+        },
+        {
+            q: "Cos'è un Target Group in AWS Elastic Load Balancing?",
+            options: [
+                "Un gruppo di utenti IAM",
+                "Un gruppo logico di risorse (es. EC2, IP, Lambda) verso cui il Load Balancer instrada il traffico",
+                "Un gruppo di Security Group",
+                "Un cluster di database"
+            ],
+            answer: 1,
+            explanation: "I Load Balancer instradano le richieste ai Target Group, che contengono i target effettivi registrati."
+        },
+        {
+            q: "Quale funzionalità permette all'ALB di decriptare il traffico HTTPS prima di inviarlo alle istanze EC2?",
+            options: ["SSL Passthrough", "SSL Termination / Offloading", "IPsec", "VPN Tunneling"],
+            answer: 1,
+            explanation: "L'SSL Termination sposta il carico computazionale della decrittografia dal server EC2 al Load Balancer."
+        },
+        {
+            q: "Quale Load Balancer fornisce nativamente un indirizzo IP statico per ogni Availability Zone?",
+            options: ["Application Load Balancer", "Network Load Balancer", "Classic Load Balancer", "Nessuno dei precedenti"],
+            answer: 1,
+            explanation: "L'NLB assegna un IP statico per AZ, utile per configurazioni firewall on-premise che richiedono IP fissi."
+        },
+        {
+            q: "Cosa fa il Cross-Zone Load Balancing?",
+            options: [
+                "Bilancia il traffico tra diverse Region AWS",
+                "Distribuisce il traffico uniformemente tra tutti i target registrati in tutte le AZ abilitate",
+                "Sposta i dati tra S3 e EBS",
+                "Crea copie di backup in altre zone"
+            ],
+            answer: 1,
+            explanation: "Permette al nodo del Load Balancer in una AZ di inviare traffico ai target situati in altre AZ."
+        },
+        {
+            q: "A cosa servono gli Health Checks in un Target Group?",
+            options: [
+                "A verificare lo stato della fatturazione AWS",
+                "A testare periodicamente se i target sono sani e pronti a ricevere traffico",
+                "A controllare i log di sicurezza",
+                "A riavviare le istanze spente"
+            ],
+            answer: 1,
+            explanation: "Se un target fallisce l'health check, il Load Balancer smette di inviargli traffico finché non torna sano."
+        },
+        {
+            q: "Qual è la differenza tra un Load Balancer Internet-facing e uno Internal?",
+            options: [
+                "L'Internal LB usa solo HTTP",
+                "L'Internet-facing LB ha nodi con indirizzi IP pubblici, l'Internal usa solo IP privati",
+                "L'Internal LB è gratuito",
+                "Non c'è differenza"
+            ],
+            answer: 1,
+            explanation: "Un Internet-facing LB instrada richieste da Internet ai target, mentre un Internal LB instrada richieste all'interno della VPC."
+        },
+
+        // AWS RDS (61-70)
+        {
+            q: "Cos'è Amazon RDS?",
+            options: [
+                "Un servizio di database NoSQL",
+                "Un servizio gestito per database relazionali (Relational Database Service)",
+                "Un data warehouse",
+                "Un servizio di caching in-memory"
+            ],
+            answer: 1,
+            explanation: "RDS semplifica la configurazione, l'operatività e la scalabilità di database relazionali nel cloud."
+        },
+        {
+            q: "Quale funzionalità di RDS garantisce l'alta affidabilità (High Availability) e il failover automatico?",
+            options: ["Read Replicas", "Multi-AZ Deployment", "Automated Backups", "Provisioned IOPS"],
+            answer: 1,
+            explanation: "Il Multi-AZ crea una replica di standby sincrona in una diversa Availability Zone. In caso di guasto, AWS esegue il failover automatico."
+        },
+        {
+            q: "Come si migliora la performance per carichi di lavoro ad alta intensità di lettura in RDS?",
+            options: ["Usando il Multi-AZ", "Aumentando la dimensione della VPC", "Creando Read Replicas", "Usando istanze Spot"],
+            answer: 2,
+            explanation: "Le Read Replicas permettono di scalare orizzontalmente le operazioni di lettura (replica asincrona)."
+        },
+        {
+            q: "Le Read Replicas in RDS possono essere promosse a database primario autonomo?",
+            options: ["Sì", "No", "Solo per Oracle", "Solo se sono in un'altra Region"],
+            answer: 0,
+            explanation: "Sì, una Read Replica può essere promossa a istanza DB standalone, utile per disaster recovery o migrazioni."
+        },
+        {
+            q: "Come gestisce RDS i backup automatici?",
+            options: [
+                "Non li supporta, bisogna fare script manuali",
+                "Esegue snapshot completi giornalieri e salva i transaction log, permettendo il Point-in-Time Recovery",
+                "Salva i dati su nastro magnetico",
+                "Invia i dati via email"
+            ],
+            answer: 1,
+            explanation: "RDS supporta il Point-in-Time Recovery (PITR) fino a un secondo specifico all'interno della finestra di retention."
+        },
+        {
+            q: "Quale dei seguenti motori di database NON è supportato da Amazon RDS?",
+            options: ["PostgreSQL", "MySQL", "MongoDB", "MariaDB"],
+            answer: 2,
+            explanation: "MongoDB è un database NoSQL. AWS offre 'Amazon DocumentDB' per la compatibilità con MongoDB, ma non fa parte di RDS."
+        },
+        {
+            q: "Durante un failover Multi-AZ in RDS, cosa succede all'endpoint di connessione?",
+            options: [
+                "L'endpoint cambia e le applicazioni devono essere aggiornate",
+                "L'endpoint DNS rimane lo stesso, ma AWS aggiorna il record per puntare alla nuova istanza primaria",
+                "Il database diventa inaccessibile per 24 ore",
+                "L'IP pubblico cambia"
+            ],
+            answer: 1,
+            explanation: "Le applicazioni non devono cambiare stringa di connessione: AWS gestisce il cambio di risoluzione DNS dietro le quinte."
+        },
+        {
+            q: "Quale tipo di storage EBS è raccomandato per database RDS di produzione con alti e costanti requisiti di I/O?",
+            options: ["General Purpose SSD (gp2/gp3)", "Provisioned IOPS SSD (io1/io2)", "Magnetic (Standard)", "Instance Store"],
+            answer: 1,
+            explanation: "Provisioned IOPS garantisce prestazioni I/O specifiche e costanti, ideali per database mission-critical."
+        },
+        {
+            q: "È possibile accedere via SSH al sistema operativo sottostante di un'istanza RDS?",
+            options: [
+                "Sì, usando la chiave PEM",
+                "Sì, ma solo come utente guest",
+                "No, RDS è un servizio gestito e l'accesso al sistema operativo è bloccato",
+                "Sì, tramite AWS Systems Manager"
+            ],
+            answer: 2,
+            explanation: "A differenza di EC2, RDS gestisce l'OS, le patch e i backup. L'accesso SSH non è consentito."
+        },
+        {
+            q: "Cos'è Amazon Aurora?",
+            options: [
+                "Un database relazionale proprietario AWS, compatibile con MySQL e PostgreSQL, ottimizzato per il cloud",
+                "Un servizio di Machine Learning",
+                "Un tool per Terraform",
+                "Un servizio di code serverless"
+            ],
+            answer: 0,
+            explanation: "Aurora offre le prestazioni dei database commerciali a un decimo del costo, con storage distribuito e fault-tolerant."
+        }
+    ];
+
+    function renderQuiz() {
+        const container = document.getElementById('quiz-container');
+        let html = '';
+        
+        questions.forEach((q, index) => {
+            html += `<div class="question-block" id="block-${index}">
+                <div class="question-title">${index + 1}. ${q.q}</div>
+                <ul class="options">`;
+            
+            q.options.forEach((opt, optIndex) => {
+                html += `<li>
+                    <label>
+                        <input type="radio" name="q${index}" value="${optIndex}">
+                        ${opt}
+                    </label>
+                </li>`;
+            });
+
+            html += `</ul>
+                <div class="explanation" id="exp-${index}">
+                    <strong>Spiegazione:</strong> ${q.explanation}
+                </div>
+            </div>`;
+        });
+
+        container.innerHTML = html;
+    }
+
+    function submitQuiz() {
+        let score = 0;
+        let answered = 0;
+
+        questions.forEach((q, index) => {
+            const selected = document.querySelector(`input[name="q${index}"]:checked`);
+            const expDiv = document.getElementById(`exp-${index}`);
+            const blockDiv = document.getElementById(`block-${index}`);
+            
+            // Reset styles
+            expDiv.style.display = 'block';
+            expDiv.className = 'explanation';
+
+            if (selected) {
+                answered++;
+                const val = parseInt(selected.value);
+                if (val === q.answer) {
+                    score++;
+                    expDiv.classList.add('correct-ans');
+                    expDiv.innerHTML = `<strong>Corretto!</strong> ${q.explanation}`;
+                } else {
+                    expDiv.classList.add('wrong-ans');
+                    expDiv.innerHTML = `<strong>Sbagliato.</strong> La risposta corretta era: <em>${q.options[q.answer]}</em>.<br><br><strong>Spiegazione:</strong> ${q.explanation}`;
+                }
+            } else {
+                expDiv.classList.add('wrong-ans');
+                expDiv.innerHTML = `<strong>Non risposto.</strong> La risposta corretta era: <em>${q.options[q.answer]}</em>.<br><br><strong>Spiegazione:</strong> ${q.explanation}`;
+            }
+        });
+
+        const resultsDiv = document.getElementById('results');
+        resultsDiv.style.display = 'block';
+        
+        const percentage = ((score / questions.length) * 100).toFixed(2);
+        let message = "";
+        if (percentage >= 80) message = "Ottimo lavoro! Sei pronto per la certificazione.";
+        else if (percentage >= 60) message = "Buon risultato, ma c'è margine di miglioramento.";
+        else message = "Ti consigliamo di ripassare le slide del corso.";
+
+        resultsDiv.innerHTML = `Hai risposto correttamente a ${score} domande su ${questions.length} (${percentage}%).<br><span style="font-size:0.8em; font-weight:normal;">${message}</span>`;
+        
+        // Scroll to top to see results
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    // Initialize
+    window.onload = renderQuiz;
+</script>
+
+</body>
+</html>
